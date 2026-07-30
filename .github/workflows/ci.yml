@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Compile-only check on both OSes — catches platform-specific build breaks
+  # fast (the library must always build on macOS even though it only runs on Linux).
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build
+        run: dotnet build nBPF.sln -c Release
+
+  # The real test run. bpf(2) needs CAP_BPF/CAP_SYS_ADMIN, so this goes through
+  # the same privileged-container script used for local development; the
+  # container shares the runner's kernel (6.8+ on ubuntu-latest), which is
+  # plenty for everything through Phase 2.
+  linux-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test in privileged Linux container
+        run: ./eng/test-linux.sh
