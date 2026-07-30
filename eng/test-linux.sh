@@ -8,5 +8,5 @@ exec docker run --rm --privileged \
   -v "$PWD":/src -w /src \
   -v nbpf-nuget:/root/.nuget/packages \
   -e DOTNET_CLI_TELEMETRY_OPTOUT=1 \
-  mcr.microsoft.com/dotnet/sdk:8.0 \
+  mcr.microsoft.com/dotnet/sdk:10.0 \
   dotnet test tests/Ebpf.Core.Tests -l "console;verbosity=normal" "$@"

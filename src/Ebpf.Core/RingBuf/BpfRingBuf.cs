@@ -14,7 +14,7 @@ public delegate void RingBufferHandler<T>(scoped ref readonly T record) where T 
 /// A BPF_MAP_TYPE_RINGBUF map plus its user-space consumer (single shared MPSC
 /// ring, kernel 5.8+). Single consumer at a time.
 /// </summary>
-public sealed unsafe class BpfRingBuf<TEvent> : IDisposable where TEvent : unmanaged
+public sealed class BpfRingBuf<TEvent> : IDisposable where TEvent : unmanaged
 {
     private const uint BusyBit = 1u << 31;
     private const uint DiscardBit = 1u << 30;
@@ -27,9 +27,9 @@ public sealed unsafe class BpfRingBuf<TEvent> : IDisposable where TEvent : unman
     /// <summary>Data area size in bytes.</summary>
     public uint Size { get; }
 
-    private readonly byte* _consumerPage;  // RW; consumer_pos lives at offset 0
-    private readonly byte* _producerPages; // RO; producer_pos at offset 0, data area one page in
-    private readonly byte* _data;
+    private readonly unsafe byte* _consumerPage;  // RW; consumer_pos lives at offset 0
+    private readonly unsafe byte* _producerPages; // RO; producer_pos at offset 0, data area one page in
+    private readonly unsafe byte* _data;
     private readonly nuint _consumerLen, _producerLen;
     private readonly ulong _mask;
     private readonly Epoll _epoll;
@@ -57,7 +57,7 @@ public sealed unsafe class BpfRingBuf<TEvent> : IDisposable where TEvent : unman
         }
     }
 
-    private BpfRingBuf(BpfMapHandle handle, uint size)
+    private unsafe BpfRingBuf(BpfMapHandle handle, uint size)
     {
         Handle = handle;
         Size = size;
@@ -156,7 +156,7 @@ public sealed unsafe class BpfRingBuf<TEvent> : IDisposable where TEvent : unman
     }
 
     /// <summary>libbpf's ring__process loop: drain until empty or a producer is mid-write.</summary>
-    private void Drain(RingBufferHandler<TEvent> handler, CancellationToken ct)
+    private unsafe void Drain(RingBufferHandler<TEvent> handler, CancellationToken ct)
     {
         ref ulong consumerPos = ref Unsafe.AsRef<ulong>(_consumerPage);
         ref ulong producerPos = ref Unsafe.AsRef<ulong>(_producerPages);
@@ -205,19 +205,19 @@ public sealed unsafe class BpfRingBuf<TEvent> : IDisposable where TEvent : unman
         }
     }
 
-    private void SignalWakeup()
+    private unsafe void SignalWakeup()
     {
         ulong one = 1;
         Libc.write(_eventFd, &one, sizeof(ulong));
     }
 
-    private void DrainWakeupFd()
+    private unsafe void DrainWakeupFd()
     {
         ulong counter;
         Libc.read(_eventFd, &counter, sizeof(ulong)); // EFD_NONBLOCK: EAGAIN is fine
     }
 
-    private void ReleaseNative()
+    private unsafe void ReleaseNative()
     {
         if (_consumerPage != null) Libc.Munmap(_consumerPage, _consumerLen);
         if (_producerPages != null) Libc.Munmap(_producerPages, _producerLen);

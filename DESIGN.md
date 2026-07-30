@@ -4,7 +4,7 @@
 > design-time surface generated from kernel BTF.
 
 **Status:** design document. Nothing here is built yet.
-**Target:** .NET 8+ (library), netstandard2.0 (generators), Linux 5.4+ (runtime).
+**Target:** .NET 10+ (library), netstandard2.0 (generators), Linux 5.4+ (runtime).
 
 ---
 
@@ -177,7 +177,7 @@ Also needed:
 - **vmlinux BTF loading** from `/sys/kernel/btf/vmlinux`, plus module BTF under
   `/sys/kernel/btf/*`.
 - **A netstandard2.0-compatible slice** — the generator needs this parser and cannot
-  reference a net8.0+ assembly. See [§6.6](#66-generator-engineering-constraints).
+  reference a net10.0+ assembly. See [§6.6](#66-generator-engineering-constraints).
   Plan for this from the start; retrofitting it is painful.
 
 ### 4.4 Relocations
@@ -494,7 +494,7 @@ These bite hard and are worth planning for rather than discovering:
 
 - **netstandard2.0.** The BTF parser lives in both the runtime library and the
   generator. Factor it as a source-only package or a netstandard2.0 slice — the
-  generator cannot reference a net8.0+ `Ebpf.Core`. *Do not discover this in phase 4.*
+  generator cannot reference a net10.0+ `Ebpf.Core`. *Do not discover this in phase 4.*
 - **No arbitrary NuGet references** in analyzers without ILMerge/ILRepack. Transitive
   dependency conflicts inside the Roslyn load context are a known misery. Keep the
   generator's dependency graph at **zero**.
@@ -613,14 +613,14 @@ Slower and separate from the main CI loop.
 
 | Package | Contents | TFM |
 |---|---|---|
-| `Ebpf.Core` | syscalls, ELF, BTF, maps, links, ringbuf. Zero native deps. | net8.0+ |
+| `Ebpf.Core` | syscalls, ELF, BTF, maps, links, ringbuf. Zero native deps. | net10.0+ |
 | `Ebpf.Btf` | BTF parser, shared with generator | netstandard2.0 |
 | `Ebpf.Build` | MSBuild targets, clang orchestration, `vmlinux.h` | — |
 | `Ebpf.SourceGen` | incremental generator — P1, P2, P3 | netstandard2.0 |
 | `Ebpf.Analyzers` | design-time verifier — P4 | netstandard2.0 |
-| `Ebpf.Testing` | `PROG_TEST_RUN`, packet builders, xunit helpers | net8.0+ |
-| `Ebpf.Tool` | `dotnet ebpf` global tool | net8.0+ |
-| `Ebpf.LibBpf` | libbpf P/Invoke backend — bootstrap, then permanent test oracle | net8.0+ |
+| `Ebpf.Testing` | `PROG_TEST_RUN`, packet builders, xunit helpers | net10.0+ |
+| `Ebpf.Tool` | `dotnet ebpf` global tool | net10.0+ |
+| `Ebpf.LibBpf` | libbpf P/Invoke backend — bootstrap, then permanent test oracle | net10.0+ |
 
 ---
 
