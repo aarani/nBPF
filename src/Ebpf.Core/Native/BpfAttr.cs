@@ -35,6 +35,20 @@ internal struct MapElemAttr
     public ulong Flags;
 }
 
+/// <summary>Attr for BPF_PROG_TEST_RUN.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct ProgTestRunAttr
+{
+    public uint ProgFd;
+    public uint Retval;      // out: the program's return value
+    public uint DataSizeIn;
+    public uint DataSizeOut;
+    public ulong DataIn;     // user-space pointer
+    public ulong DataOut;    // user-space pointer, 0 = don't copy out
+    public uint Repeat;
+    public uint Duration;    // out: mean ns per run
+}
+
 /// <summary>Attr for BPF_PROG_LOAD.</summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ProgLoadAttr

@@ -25,5 +25,13 @@ public sealed class BpfProgram : IDisposable
         return new BpfProgram(handle, type);
     }
 
+    /// <summary>
+    /// Runs the program with the given input via BPF_PROG_TEST_RUN and returns
+    /// its return value. For packet program types the input must be a plausible
+    /// packet (at least 14 bytes for an Ethernet header).
+    /// </summary>
+    public uint TestRun(ReadOnlySpan<byte> dataIn, uint repeat = 1)
+        => BpfSyscall.ProgTestRun(Handle, dataIn, repeat);
+
     public void Dispose() => Handle.Dispose();
 }

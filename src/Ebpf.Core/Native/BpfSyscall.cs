@@ -158,6 +158,24 @@ internal static unsafe partial class BpfSyscall
         }
     }
 
+    /// <summary>Runs a program via BPF_PROG_TEST_RUN and returns its return value.</summary>
+    internal static uint ProgTestRun(BpfProgHandle prog, ReadOnlySpan<byte> dataIn, uint repeat)
+    {
+        fixed (byte* dataPtr = dataIn)
+        {
+            var attr = new ProgTestRunAttr
+            {
+                ProgFd = (uint)prog.Fd,
+                DataSizeIn = (uint)dataIn.Length,
+                DataIn = (ulong)dataPtr,
+                Repeat = repeat,
+            };
+            int result = Invoke(BpfCmd.ProgTestRun, ref attr);
+            if (result < 0) throw TranslateError(-result, "BPF_PROG_TEST_RUN");
+            return attr.Retval;
+        }
+    }
+
     private static BpfException TranslateError(int errno, string operation) => errno switch
     {
         EPERM => new BpfPermissionException(operation, errno),

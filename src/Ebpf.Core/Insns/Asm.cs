@@ -18,6 +18,14 @@ public static class Asm
     /// <summary>src_reg value marking a ld_imm64 whose imm is a map fd.</summary>
     public const byte PseudoMapFd = 1;
 
+    // Helper function ids from the kernel's uapi helper list.
+    public const int HelperMapLookupElem = 1;
+    public const int HelperRingbufOutput = 130;
+
+    /// <summary>*(u64*)(dst + off) = imm (sign-extended to 64 bits).</summary>
+    public static BpfInsn StoreDwordImm(Reg dst, short off, int imm)
+        => new(BPF_ST | BPF_MEM | BPF_DW, dst, 0, off, imm);
+
     /// <summary>dst = imm (64-bit mov).</summary>
     public static BpfInsn MovImm(Reg dst, int imm)
         => new(BPF_ALU64 | BPF_MOV | BPF_K, dst, 0, 0, imm);
