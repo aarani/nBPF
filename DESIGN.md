@@ -3,7 +3,9 @@
 > A managed eBPF loader and toolchain for C#, with a type-provider-style
 > design-time surface generated from kernel BTF.
 
-**Status:** design document. Nothing here is built yet.
+**Status:** the plan. Phase 0 is built and phase 1 is underway (the BTF parser
+of [§4.3](#43-btf) exists; the ELF reader and relocations do not). Everything
+from phase 2 on is still design. See the README for what actually works today.
 **Target:** .NET 10+ (library), netstandard2.0 (generators), Linux 5.4+ (runtime).
 
 ---
@@ -180,6 +182,13 @@ Also needed:
   reference a net10.0+ assembly. See [§6.6](#66-generator-engineering-constraints).
   Plan for this from the start; retrofitting it is painful.
 
+**Built.** `Ebpf.Btf` implements the type graph above, targeting netstandard2.0 from the
+outset so the slice never has to be retrofitted. Parsing is two-pass — decode records,
+then resolve ids — because BTF ids may point forward. Void is modelled as a null
+reference rather than a type entry, which is why `IBtfPtr.Pointee` and the qualifier
+targets are nullable: `const void *` really does encode as PTR → CONST → void.
+Sanitization and vmlinux/module BTF loading are still outstanding.
+
 ### 4.4 Relocations
 
 Must be applied in dependency order.
@@ -189,7 +198,10 @@ Must be applied in dependency order.
 `imm64` carries the offset into the `.data`/`.rodata` array map.
 
 **2. Global data.** `.rodata`, `.data`, and `.bss` each become a single-entry
-`BPF_MAP_TYPE_ARRAY`. Populate `.rodata` from the ELF contents *after* applying the
+`BPF_MAP_TYPE_ARRAY`. Note that clang emits `BTF_KIND_DATASEC` records with a **size of
+zero** in an unlinked `.o` — the real section size lives in the ELF section header, and
+the loader is expected to patch it in. Size these maps from the ELF, never from BTF.
+Populate `.rodata` from the ELF contents *after* applying the
 user's config assignments, then `BPF_MAP_FREEZE` it so the verifier treats the values
 as constants and prunes dead branches. **This is the mechanism behind
 `probe.Config.MinUid = 1000`** — it is not a runtime lookup, it is a compile-time
@@ -614,7 +626,7 @@ Slower and separate from the main CI loop.
 | Package | Contents | TFM |
 |---|---|---|
 | `Ebpf.Core` | syscalls, ELF, BTF, maps, links, ringbuf. Zero native deps. | net10.0+ |
-| `Ebpf.Btf` | BTF parser, shared with generator | netstandard2.0 |
+| `Ebpf.Btf` | BTF parser, shared with generator. **Built.** | netstandard2.0 |
 | `Ebpf.Build` | MSBuild targets, clang orchestration, `vmlinux.h` | — |
 | `Ebpf.SourceGen` | incremental generator — P1, P2, P3 | netstandard2.0 |
 | `Ebpf.Analyzers` | design-time verifier — P4 | netstandard2.0 |
@@ -630,17 +642,17 @@ Phases 0–3 are the load-bearing runtime engineering and are unaffected by the
 type-provider framing. Phase 4 is where it becomes something people actually want to
 use — **resist the temptation to start there.**
 
-| Phase | Scope | Exit criterion |
-|---|---|---|
-| **0** | Syscall layer, map CRUD, hand-assembled program, ringbuf | A hand-written instruction array loads and emits events |
-| **1** | ELF + BTF parse; map / global / subprog relocations | Real clang output for a tracepoint loads on the build kernel |
-| **2** | CO-RE field relos, vmlinux BTF, feature probes | Same binary runs on 5.4 and 6.8 unmodified |
-| **3** | Attachment breadth: XDP, TC/TCX, cgroup, fentry, netlink | XDP drop counter on a live NIC |
-| **4** | **P1** skeleton generator + MSBuild + templates | The [§3](#3-target-ux) snippet is the complete program |
-| **5** | **P4** design-time verifier analyzer | Verifier error appears as a squiggle on the right line of `.bpf.c` |
-| **6** | **P2** attach surface, demand-driven | Typo'd tracepoint name is a compile error |
-| **7** | **P3** kernel types + `PROG_TEST_RUN` contexts | `Vmlinux.xdp_md` test input; closure stays under 50 types |
-| **8** | NativeAOT, perf hardening, BTFHub matrix, benchmarks | Single static binary; ringbuf throughput within 15% of `cilium/ebpf` |
+| Phase | Scope | Exit criterion | Status |
+|---|---|---|---|
+| **0** | Syscall layer, map CRUD, hand-assembled program, ringbuf | A hand-written instruction array loads and emits events | ✅ done |
+| **1** | ELF + BTF parse; map / global / subprog relocations | Real clang output for a tracepoint loads on the build kernel | 🚧 BTF parse done; ELF + relocations outstanding |
+| **2** | CO-RE field relos, vmlinux BTF, feature probes | Same binary runs on 5.4 and 6.8 unmodified | — |
+| **3** | Attachment breadth: XDP, TC/TCX, cgroup, fentry, netlink | XDP drop counter on a live NIC | — |
+| **4** | **P1** skeleton generator + MSBuild + templates | The [§3](#3-target-ux) snippet is the complete program | — |
+| **5** | **P4** design-time verifier analyzer | Verifier error appears as a squiggle on the right line of `.bpf.c` | — |
+| **6** | **P2** attach surface, demand-driven | Typo'd tracepoint name is a compile error | — |
+| **7** | **P3** kernel types + `PROG_TEST_RUN` contexts | `Vmlinux.xdp_md` test input; closure stays under 50 types | — |
+| **8** | NativeAOT, perf hardening, BTFHub matrix, benchmarks | Single static binary; ringbuf throughput within 15% of `cilium/ebpf` | — |
 
 **P4 is deliberately ahead of P2** — it is a smaller build and it changes day-to-day
 experience more.
