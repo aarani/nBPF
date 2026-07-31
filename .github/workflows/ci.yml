@@ -6,8 +6,10 @@ on:
   pull_request:
 
 jobs:
-  # Compile-only check on both OSes — catches platform-specific build breaks
-  # fast (the library must always build on macOS even though it only runs on Linux).
+  # Build on both OSes — catches platform-specific build breaks fast (the library
+  # must always build on macOS even though it only runs on Linux) — and run the
+  # tests that need no kernel. Ebpf.Btf.Tests is pure parsing, so running it on
+  # both runners is free coverage of the host-endianness-independent decoding.
   build:
     strategy:
       fail-fast: false
@@ -21,6 +23,8 @@ jobs:
           dotnet-version: 10.0.x
       - name: Build
         run: dotnet build nBPF.sln -c Release
+      - name: Test (no kernel required)
+        run: dotnet test tests/Ebpf.Btf.Tests -c Release --no-build
 
   # The real test run. bpf(2) needs CAP_BPF/CAP_SYS_ADMIN, so this goes through
   # the same privileged-container script used for local development; the
