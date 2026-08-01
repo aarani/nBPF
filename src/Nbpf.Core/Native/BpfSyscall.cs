@@ -83,6 +83,27 @@ internal static unsafe partial class BpfSyscall
         if (result < 0) throw TranslateError(-result, "BPF_MAP_UPDATE_ELEM");
     }
 
+    /// <summary>UPDATE_ELEM with caller-supplied raw key/value bytes, for maps whose
+    /// key and value sizes are only known at runtime (e.g. global-data array maps).</summary>
+    internal static void UpdateElem(
+        BpfMapHandle map, ReadOnlySpan<byte> key, ReadOnlySpan<byte> value, MapUpdateFlags flags)
+    {
+        fixed (byte* k = key)
+        fixed (byte* v = value)
+        {
+            UpdateElem(map, k, v, flags);
+        }
+    }
+
+    /// <summary>BPF_MAP_FREEZE: no further writes from userspace, ever. Combined with
+    /// BPF_F_RDONLY_PROG this makes the contents constants the verifier can fold.</summary>
+    internal static void FreezeMap(BpfMapHandle map)
+    {
+        var attr = new MapFreezeAttr { MapFd = (uint)map.Fd };
+        int result = Invoke(BpfCmd.MapFreeze, ref attr);
+        if (result < 0) throw TranslateError(-result, "BPF_MAP_FREEZE");
+    }
+
     internal static bool DeleteElem(BpfMapHandle map, void* key)
     {
         var attr = new MapElemAttr { MapFd = (uint)map.Fd, Key = (ulong)key };

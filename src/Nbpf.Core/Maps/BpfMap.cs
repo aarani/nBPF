@@ -14,7 +14,7 @@ public sealed unsafe class BpfMap<TKey, TValue> : IDisposable
     public BpfMapType Type { get; }
     public uint MaxEntries { get; }
 
-    private BpfMap(BpfMapHandle handle, BpfMapType type, uint maxEntries)
+    internal BpfMap(BpfMapHandle handle, BpfMapType type, uint maxEntries)
     {
         Handle = handle;
         Type = type;

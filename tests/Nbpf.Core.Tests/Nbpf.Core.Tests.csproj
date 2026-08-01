@@ -11,5 +11,13 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Nbpf.Core/Nbpf.Core.csproj" />
+    <ProjectReference Include="../../src/Nbpf.Elf/Nbpf.Elf.csproj" />
+    <ProjectReference Include="../../src/Nbpf.Btf/Nbpf.Btf.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Linked, not copied: eng/gen-fixtures.sh regenerates a single .o and the
+         relocation tests here must see exactly what the ELF reader tests see. -->
+    <None Include="../Nbpf.Elf.Tests/Fixtures/sample.bpf.o"
+          Link="Fixtures/sample.bpf.o" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

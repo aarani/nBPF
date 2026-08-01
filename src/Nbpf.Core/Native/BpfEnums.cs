@@ -15,9 +15,19 @@ internal enum BpfCmd
     ProgDetach = 9,
     ProgTestRun = 10,
     BtfLoad = 18,
+    MapFreeze = 22,
     LinkCreate = 28,
     MapLookupBatch = 24,
     MapUpdateBatch = 26,
+}
+
+/// <summary>BPF_MAP_CREATE map_flags bits. Values from linux/bpf.h.</summary>
+[Flags]
+internal enum BpfMapCreateFlags : uint
+{
+    None = 0,
+    /// <summary>BPF_F_RDONLY_PROG — the program side may only read the map.</summary>
+    RdonlyProg = 1u << 7,
 }
 
 public enum BpfMapType : uint

@@ -18,6 +18,18 @@ public static class Asm
     /// <summary>src_reg value marking a ld_imm64 whose imm is a map fd.</summary>
     public const byte PseudoMapFd = 1;
 
+    /// <summary>src_reg value marking a ld_imm64 that loads a pointer into a map's
+    /// value: imm of the low slot is the map fd, imm of the high slot the offset.</summary>
+    public const byte PseudoMapValue = 2;
+
+    /// <summary>src_reg value marking a call insn as bpf-to-bpf (imm is a pc-relative
+    /// instruction offset) rather than a helper call.</summary>
+    public const byte PseudoCall = 1;
+
+    // Full opcodes the relocation engine needs to recognize in clang output.
+    internal const byte LdImm64OpCode = BPF_LD | BPF_IMM | BPF_DW;  // 0x18
+    internal const byte CallOpCode = BPF_JMP | BPF_CALL;            // 0x85
+
     // Helper function ids from the kernel's uapi helper list.
     public const int HelperMapLookupElem = 1;
     public const int HelperRingbufOutput = 130;

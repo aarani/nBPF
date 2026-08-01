@@ -1,6 +1,6 @@
 // Fixture for the BTF parser tests. Deliberately self-contained: no vmlinux.h and no
 // kernel headers, so the .BTF section can be regenerated on any host that has clang.
-// Regenerate with eng/gen-btf-fixture.sh — do not edit sample.btf by hand.
+// Regenerate with eng/gen-fixtures.sh — do not edit sample.btf by hand.
 //
 // Only types reachable from a function or a global variable end up in BTF, which is why
 // `struct event` is anchored by a global rather than being a local in handle_exec.

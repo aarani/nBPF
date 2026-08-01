@@ -24,4 +24,11 @@ public readonly struct BpfInsn(byte opCode, Reg dst, Reg src, short offset, int 
 
     public Reg Dst => (Reg)(Regs & 0xF);
     public Reg Src => (Reg)(Regs >> 4);
+
+    /// <summary>Copy with a different imm — how relocations are patched in.</summary>
+    internal BpfInsn WithImm(int newImm) => new(OpCode, Dst, Src, Offset, newImm);
+
+    /// <summary>Copy with a different src_reg and imm. src takes the raw 4-bit value
+    /// because relocations store pseudo markers (not registers) in src_reg.</summary>
+    internal BpfInsn WithSrcImm(byte src, int newImm) => new(OpCode, Dst, (Reg)src, Offset, newImm);
 }

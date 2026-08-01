@@ -3,9 +3,11 @@
 > A managed eBPF loader and toolchain for C#, with a type-provider-style
 > design-time surface generated from kernel BTF.
 
-**Status:** the plan. Phase 0 is built and phase 1 is underway — the ELF reader
-of [§4.2](#42-elf-reader) and the BTF parser of [§4.3](#43-btf) exist; the
-relocations of [§4.4](#44-relocations) do not. Everything from phase 2 on is
+**Status:** the plan. Phases 0 and 1 are built — the ELF reader of
+[§4.2](#42-elf-reader), the BTF parser of [§4.3](#43-btf), and the map /
+global-data / subprogram relocations of [§4.4](#44-relocations) exist, so a
+real clang tracepoint object loads end to end. The CO-RE and extern steps of
+§4.4 belong to phase 2 and do not exist yet. Everything from phase 2 on is
 still design. See the README for what actually works today.
 **Target:** .NET 10+ (library), netstandard2.0 (generators), Linux 5.4+ (runtime).
 
@@ -660,7 +662,7 @@ use — **resist the temptation to start there.**
 | Phase | Scope | Exit criterion | Status |
 |---|---|---|---|
 | **0** | Syscall layer, map CRUD, hand-assembled program, ringbuf | A hand-written instruction array loads and emits events | ✅ done |
-| **1** | ELF + BTF parse; map / global / subprog relocations | Real clang output for a tracepoint loads on the build kernel | 🚧 ELF + BTF parse done; relocations outstanding |
+| **1** | ELF + BTF parse; map / global / subprog relocations | Real clang output for a tracepoint loads on the build kernel | ✅ done — `BpfObject.Load` passes the exit criterion in the container tests |
 | **2** | CO-RE field relos, vmlinux BTF, feature probes | Same binary runs on 5.4 and 6.8 unmodified | — |
 | **3** | Attachment breadth: XDP, TC/TCX, cgroup, fentry, netlink | XDP drop counter on a live NIC | — |
 | **4** | **P1** skeleton generator + MSBuild + templates | The [§3](#3-target-ux) snippet is the complete program | — |

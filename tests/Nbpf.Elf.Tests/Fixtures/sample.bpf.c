@@ -1,6 +1,6 @@
 // Fixture for the ELF reader tests. Self-contained: no vmlinux.h and no kernel headers,
 // so the object can be regenerated on any host that has clang with a BPF target.
-// Regenerate with eng/gen-elf-fixture.sh — do not edit sample.bpf.o by hand.
+// Regenerate with eng/gen-fixtures.sh — do not edit sample.bpf.o by hand.
 //
 // This is shaped to exercise the reader rather than to be a useful program: two program
 // sections, BTF-defined maps, a non-inlined subprogram, and globals in .rodata/.bss, so

@@ -12,7 +12,7 @@ public sealed class BpfProgram : IDisposable
     public BpfProgHandle Handle { get; }
     public BpfProgType Type { get; }
 
-    private BpfProgram(BpfProgHandle handle, BpfProgType type)
+    internal BpfProgram(BpfProgHandle handle, BpfProgType type)
     {
         Handle = handle;
         Type = type;

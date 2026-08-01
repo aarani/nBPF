@@ -10,7 +10,7 @@ from kernel BTF, so map names, program names, tracepoints, and event struct
 layouts are all real C# types instead of strings. See [DESIGN.md](DESIGN.md)
 for the full plan, rationale, and phasing.
 
-> **Status:** early. Phase 0 is done and phase 1 is underway — see
+> **Status:** early. Phases 0 and 1 are done — see
 > [Current status](#current-status) below. Everything past that is design,
 > not code.
 
@@ -29,6 +29,7 @@ src/Nbpf.Core/        Core library: syscalls, program/map wrappers, ring buffer
   Insns/                 BPF instruction/assembler types
   Maps/                  Map CRUD wrappers
   RingBuf/               Ring buffer consumer (mmap + epoll)
+  ObjectFile/            .bpf.o loader: map planning, relocations, BpfObject
 src/Nbpf.Btf/         BTF parser and type graph (netstandard2.0)
 src/Nbpf.Elf/         ELF64 reader for BPF objects (netstandard2.0)
 src/Shared/           Small source files linked into the netstandard2.0 projects
@@ -45,7 +46,8 @@ The Roslyn source generator planned in
 it reads a `.bpf.o` and parses the BTF inside it — and a generator cannot
 reference a net10.0 assembly. Note this puts the ELF reader in its own package
 rather than in `Nbpf.Core` as
-[DESIGN.md §10](DESIGN.md#10-package-layout) originally sketched.
+[DESIGN.md §10](DESIGN.md#10-package-layout) originally sketched; `Nbpf.Core`
+references both and hosts the relocation engine on top of them.
 
 ## Current status
 
@@ -57,7 +59,7 @@ Phase 0 of the plan in [DESIGN.md](DESIGN.md#11-phasing) is complete:
 - `BPF_PROG_TEST_RUN` support
 - Ring buffer consumer (mmap + epoll)
 
-Phase 1 is in progress. Done so far:
+Phase 1 is complete:
 
 - **BTF parser** (`Nbpf.Btf`) — full type graph for all 19 `BTF_KIND_*` kinds,
   including bitfield members, signed/unsigned enums, `ENUM64`, datasecs, and
@@ -72,11 +74,21 @@ Phase 1 is in progress. Done so far:
   `ElfFormatException` and never a raw index error, which is covered by
   truncating and corrupting the fixture across several hundred cases.
 
-Still to do in phase 1: map / global-data / subprogram relocations. Not yet
-started: CO-RE, attachment beyond test-run, and all of the source-generator and
-design-time tooling described in DESIGN.md. There is no BPF program compiler
-here — programs are currently either hand-assembled or loaded from an
-already-compiled object.
+- **Object loader** (`Nbpf.Core.ObjectFile.BpfObject`) — loads a clang-compiled
+  `.bpf.o` end to end: creates the BTF-defined `.maps` maps, materializes
+  `.rodata`/`.data`/`.bss` as single-entry array maps sized from the ELF
+  (freezing `.rodata` so the verifier treats it as constant), applies map,
+  global-data, and subprogram-call relocations, and loads every program. The
+  relocation engine itself is pure and tested instruction-by-instruction on any
+  host; the end-to-end load — real clang output accepted by the verifier, the
+  phase 1 exit criterion — runs in the container tests.
+
+Next is phase 2: CO-RE relocations (`.BTF.ext`), vmlinux BTF, and feature
+probes; extern resolution (kconfig, kfuncs) also remains from
+[DESIGN.md §4.4](DESIGN.md#44-relocations). Not yet started: attachment beyond
+test-run, and all of the source-generator and design-time tooling described in
+DESIGN.md. There is no BPF program compiler here — programs are either
+hand-assembled or loaded from an already-compiled object.
 
 ## Building
 

@@ -35,6 +35,13 @@ internal struct MapElemAttr
     public ulong Flags;
 }
 
+/// <summary>Attr for BPF_MAP_FREEZE — just the fd of the map to freeze.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct MapFreezeAttr
+{
+    public uint MapFd;
+}
+
 /// <summary>Attr for BPF_PROG_TEST_RUN.</summary>
 [StructLayout(LayoutKind.Sequential)]
 internal struct ProgTestRunAttr

@@ -3,4 +3,13 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Nbpf.Core</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Nbpf.Elf/Nbpf.Elf.csproj" />
+    <ProjectReference Include="../Nbpf.Btf/Nbpf.Btf.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The relocation pipeline (planner/linker) is internal by design; its
+         instruction-level tests live in Nbpf.Core.Tests. -->
+    <InternalsVisibleTo Include="Nbpf.Core.Tests" />
+  </ItemGroup>
 </Project>
