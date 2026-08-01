@@ -24,7 +24,9 @@ jobs:
       - name: Build
         run: dotnet build nBPF.sln -c Release
       - name: Test (no kernel required)
-        run: dotnet test tests/Ebpf.Btf.Tests -c Release --no-build
+        run: |
+          dotnet test tests/Ebpf.Btf.Tests -c Release --no-build
+          dotnet test tests/Ebpf.Elf.Tests -c Release --no-build
 
   # The real test run. bpf(2) needs CAP_BPF/CAP_SYS_ADMIN, so this goes through
   # the same privileged-container script used for local development; the

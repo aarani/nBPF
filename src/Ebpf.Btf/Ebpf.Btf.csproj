@@ -3,4 +3,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <RootNamespace>Ebpf.Btf</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/IsExternalInit.cs" Link="Shared/IsExternalInit.cs" />
+  </ItemGroup>
 </Project>

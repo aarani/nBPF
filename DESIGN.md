@@ -159,6 +159,15 @@ Sections that matter:
 - `.BTF`, `.BTF.ext`
 - `.rel*` relocation sections
 
+**Where it lives.** `Ebpf.Elf`, netstandard2.0 — *not* `Ebpf.Core` as
+[§10](#10-package-layout) first sketched. The P1 generator reads a `.bpf.o` from
+`AdditionalFiles` and parses the BTF inside it ([§7.1](#71-the-pipeline)), which means it
+needs the ELF reader as well as the BTF parser, and a generator cannot reference a net10.0
+assembly. Same constraint as [§6.6](#66-generator-engineering-constraints), same answer.
+
+**Status.** Public surface and test suite exist; the reader itself does not. The tests are
+written against a checked-in clang-produced object and are red until it is implemented.
+
 ### 4.3 BTF
 
 Full parser for the type graph:
@@ -625,8 +634,9 @@ Slower and separate from the main CI loop.
 
 | Package | Contents | TFM |
 |---|---|---|
-| `Ebpf.Core` | syscalls, ELF, BTF, maps, links, ringbuf. Zero native deps. | net10.0+ |
+| `Ebpf.Core` | syscalls, maps, links, ringbuf, relocation engine. Zero native deps. | net10.0+ |
 | `Ebpf.Btf` | BTF parser, shared with generator. **Built.** | netstandard2.0 |
+| `Ebpf.Elf` | ELF64 reader, shared with generator. **Specified, not implemented.** | netstandard2.0 |
 | `Ebpf.Build` | MSBuild targets, clang orchestration, `vmlinux.h` | — |
 | `Ebpf.SourceGen` | incremental generator — P1, P2, P3 | netstandard2.0 |
 | `Ebpf.Analyzers` | design-time verifier — P4 | netstandard2.0 |

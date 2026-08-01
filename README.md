@@ -29,18 +29,23 @@ src/Ebpf.Core/        Core library: syscalls, program/map wrappers, ring buffer
   Insns/                 BPF instruction/assembler types
   Maps/                  Map CRUD wrappers
   RingBuf/               Ring buffer consumer (mmap + epoll)
-src/Ebpf.Btf/         BTF parser and type graph (netstandard2.0, shared with
-                        the future source generator)
+src/Ebpf.Btf/         BTF parser and type graph (netstandard2.0)
+src/Ebpf.Elf/         ELF64 reader for BPF objects (netstandard2.0)
+src/Shared/           Small source files linked into the netstandard2.0 projects
 tests/Ebpf.Core.Tests/ xUnit tests (require a Linux kernel with BPF support)
 tests/Ebpf.Btf.Tests/  xUnit tests for the BTF parser (run on any host)
+tests/Ebpf.Elf.Tests/  xUnit tests for the ELF reader (run on any host)
 eng/test-linux.sh      Runs the Linux-only tests in a privileged container
-eng/gen-btf-fixture.sh Regenerates the checked-in BTF test fixture via clang
+eng/gen-fixtures.sh    Regenerates the checked-in test fixtures via clang
 ```
 
-`Ebpf.Btf` targets netstandard2.0 rather than net10.0 on purpose: the Roslyn
-source generator planned in
-[DESIGN.md §6.6](DESIGN.md#66-generator-engineering-constraints) will need this
-same parser and cannot reference a net10.0 assembly.
+`Ebpf.Btf` and `Ebpf.Elf` target netstandard2.0 rather than net10.0 on purpose.
+The Roslyn source generator planned in
+[DESIGN.md §6.6](DESIGN.md#66-generator-engineering-constraints) needs both —
+it reads a `.bpf.o` and parses the BTF inside it — and a generator cannot
+reference a net10.0 assembly. Note this puts the ELF reader in its own package
+rather than in `Ebpf.Core` as
+[DESIGN.md §10](DESIGN.md#10-package-layout) originally sketched.
 
 ## Current status
 
@@ -60,11 +65,16 @@ Phase 1 is in progress. Done so far:
   `BtfFormatException` rather than misparsing it. Verified against a checked-in
   `.BTF` section produced by a real clang.
 
-Still to do in phase 1: the ELF reader, and map / global-data / subprogram
-relocations. Not yet started: CO-RE, attachment beyond test-run, and all of the
-source-generator and design-time tooling described in DESIGN.md. There is no
-BPF program compiler here — programs are currently either hand-assembled or
-loaded from an already-compiled object.
+- **ELF reader** (`Ebpf.Elf`) — **specified, not implemented.** The public
+  surface and a 49-test suite exist and are written against a checked-in
+  clang-produced object; `ElfReader.Parse` throws `NotImplementedException`, so
+  those tests are red by design and are deliberately not wired into CI yet.
+
+Still to do in phase 1: implement that reader, then map / global-data /
+subprogram relocations. Not yet started: CO-RE, attachment beyond test-run, and
+all of the source-generator and design-time tooling described in DESIGN.md.
+There is no BPF program compiler here — programs are currently either
+hand-assembled or loaded from an already-compiled object.
 
 ## Building
 
@@ -74,16 +84,18 @@ dotnet build
 
 ## Testing
 
-The BTF parser tests are pure parsing with no syscalls, so they run anywhere:
+The BTF and ELF tests are pure parsing with no syscalls, so they run anywhere:
 
 ```bash
 dotnet test tests/Ebpf.Btf.Tests
 ```
 
-Their fixture (`tests/Ebpf.Btf.Tests/Fixtures/sample.btf`) is checked in, so
-clang is not needed to run them. If you change `sample.bpf.c`, regenerate it
-with `eng/gen-btf-fixture.sh` (needs clang with a BPF target and
-`llvm-objcopy`) and commit the result.
+(The ELF suite fails until the reader is implemented — see
+[Current status](#current-status).)
+
+Their fixtures are checked in, so clang is not needed to run them. If you
+change either `sample.bpf.c`, regenerate them with `eng/gen-fixtures.sh` (needs
+clang with a BPF target and `llvm-objcopy`) and commit the result.
 
 The `Ebpf.Core` tests exercise real `bpf(2)` syscalls and need `CAP_BPF` (or
 `CAP_SYS_ADMIN`) on a Linux kernel, so they won't run on macOS/Windows hosts
