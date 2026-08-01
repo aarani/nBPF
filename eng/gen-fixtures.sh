@@ -4,8 +4,8 @@
 # Fixtures are committed so the test suites run anywhere, including hosts without clang.
 # Rerun this only when a sample.bpf.c changes, and commit the result.
 #
-#   tests/Ebpf.Btf.Tests/Fixtures/sample.btf     just the .BTF section
-#   tests/Ebpf.Elf.Tests/Fixtures/sample.bpf.o   the whole relocatable object
+#   tests/Nbpf.Btf.Tests/Fixtures/sample.btf     just the .BTF section
+#   tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o   the whole relocatable object
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -34,15 +34,15 @@ compile() {
 }
 
 # The BTF fixture keeps only the .BTF section, so those tests need no ELF reader.
-btf_src="$root/tests/Ebpf.Btf.Tests/Fixtures/sample.bpf.c"
+btf_src="$root/tests/Nbpf.Btf.Tests/Fixtures/sample.bpf.c"
 compile "$btf_src" "$tmp/btf-sample.o"
-"$objcopy" --dump-section .BTF="$root/tests/Ebpf.Btf.Tests/Fixtures/sample.btf" "$tmp/btf-sample.o"
+"$objcopy" --dump-section .BTF="$root/tests/Nbpf.Btf.Tests/Fixtures/sample.btf" "$tmp/btf-sample.o"
 
 # The ELF fixture is the whole object, relocations and all.
-elf_src="$root/tests/Ebpf.Elf.Tests/Fixtures/sample.bpf.c"
-compile "$elf_src" "$root/tests/Ebpf.Elf.Tests/Fixtures/sample.bpf.o"
+elf_src="$root/tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.c"
+compile "$elf_src" "$root/tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o"
 
-for f in "$root/tests/Ebpf.Btf.Tests/Fixtures/sample.btf" \
-         "$root/tests/Ebpf.Elf.Tests/Fixtures/sample.bpf.o"; do
+for f in "$root/tests/Nbpf.Btf.Tests/Fixtures/sample.btf" \
+         "$root/tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o"; do
     echo "wrote ${f#"$root/"} ($(wc -c < "$f" | tr -d ' ') bytes)"
 done

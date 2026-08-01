@@ -120,7 +120,7 @@ reflected over, so it AOTs.
 
 ### 4.1 Syscall layer
 
-Namespace: `Ebpf.Core.Native`.
+Namespace: `Nbpf.Core.Native`.
 
 `[LibraryImport]`-generated `syscall(long nr, int cmd, void* attr, uint size)`.
 `__NR_bpf` is **321** on x86-64, **280** on aarch64/riscv64, **386** on arm — a small
@@ -160,7 +160,7 @@ Sections that matter:
 - `.BTF`, `.BTF.ext`
 - `.rel*` relocation sections
 
-**Where it lives.** `Ebpf.Elf`, netstandard2.0 — *not* `Ebpf.Core` as
+**Where it lives.** `Nbpf.Elf`, netstandard2.0 — *not* `Nbpf.Core` as
 [§10](#10-package-layout) first sketched. The P1 generator reads a `.bpf.o` from
 `AdditionalFiles` and parses the BTF inside it ([§7.1](#71-the-pipeline)), which means it
 needs the ELF reader as well as the BTF parser, and a generator cannot reference a net10.0
@@ -196,7 +196,7 @@ Also needed:
   reference a net10.0+ assembly. See [§6.6](#66-generator-engineering-constraints).
   Plan for this from the start; retrofitting it is painful.
 
-**Built.** `Ebpf.Btf` implements the type graph above, targeting netstandard2.0 from the
+**Built.** `Nbpf.Btf` implements the type graph above, targeting netstandard2.0 from the
 outset so the slice never has to be retrofitted. Parsing is two-pass — decode records,
 then resolve ids — because BTF ids may point forward. Void is modelled as a null
 reference rather than a type entry, which is why `IBtfPtr.Pointee` and the qualifier
@@ -489,7 +489,7 @@ part of writing eBPF, and it currently happens at the latest possible moment.
 out-of-process helper spoken to over a Unix socket, so a developer on Windows or macOS
 points it at a VM or container and gets the same experience.
 
-Off by default. Opt in via `<EbpfDesignTimeVerify>true</EbpfDesignTimeVerify>`.
+Off by default. Opt in via `<NbpfDesignTimeVerify>true</NbpfDesignTimeVerify>`.
 
 ### 6.5 The design-time connection problem
 
@@ -505,7 +505,7 @@ detail to an architectural invariant:
 > Never `/sys/kernel/btf/vmlinux` from whatever the build machine happens to be running.
 
 ```console
-$ dotnet ebpf pin-kernel --from-running
+$ dotnet nbpf pin-kernel --from-running
 wrote btf/6.8-generic.btf (4.2 MB)   # commit this
 ```
 
@@ -520,7 +520,7 @@ These bite hard and are worth planning for rather than discovering:
 
 - **netstandard2.0.** The BTF parser lives in both the runtime library and the
   generator. Factor it as a source-only package or a netstandard2.0 slice — the
-  generator cannot reference a net10.0+ `Ebpf.Core`. *Do not discover this in phase 4.*
+  generator cannot reference a net10.0+ `Nbpf.Core`. *Do not discover this in phase 4.*
 - **No arbitrary NuGet references** in analyzers without ILMerge/ILRepack. Transitive
   dependency conflicts inside the Roslyn load context are a known misery. Keep the
   generator's dependency graph at **zero**.
@@ -562,7 +562,7 @@ its BTF, and emits the partial class. Generator rather than a plain task **becau
 re-run generators on file change** — you edit a struct in C and the C# type updates
 without a rebuild.
 
-### 7.2 `dotnet ebpf` global tool
+### 7.2 `dotnet nbpf` global tool
 
 | Command | Purpose |
 |---|---|
@@ -571,7 +571,7 @@ without a rebuild.
 | `dump asm` | managed BPF disassembler — a weekend of work, pays for itself the first time someone asks "what did the verifier actually see?" |
 | `explain` | pattern-match common verifier errors to explanations and fixes |
 | `pin-kernel` | write a BTF blob into the repo |
-| `new` | templates: `ebpf-tracepoint`, `ebpf-xdp`, `ebpf-tc` |
+| `new` | templates: `nbpf-tracepoint`, `nbpf-xdp`, `nbpf-tc` |
 
 `explain` deserves emphasis. Verifier messages are the single biggest source of eBPF
 frustration; mapping `"invalid mem access 'scalar'"` or
@@ -639,15 +639,15 @@ Slower and separate from the main CI loop.
 
 | Package | Contents | TFM |
 |---|---|---|
-| `Ebpf.Core` | syscalls, maps, links, ringbuf, relocation engine. Zero native deps. | net10.0+ |
-| `Ebpf.Btf` | BTF parser, shared with generator. **Built.** | netstandard2.0 |
-| `Ebpf.Elf` | ELF64 reader, shared with generator. **Built.** | netstandard2.0 |
-| `Ebpf.Build` | MSBuild targets, clang orchestration, `vmlinux.h` | — |
-| `Ebpf.SourceGen` | incremental generator — P1, P2, P3 | netstandard2.0 |
-| `Ebpf.Analyzers` | design-time verifier — P4 | netstandard2.0 |
-| `Ebpf.Testing` | `PROG_TEST_RUN`, packet builders, xunit helpers | net10.0+ |
-| `Ebpf.Tool` | `dotnet ebpf` global tool | net10.0+ |
-| `Ebpf.LibBpf` | libbpf P/Invoke backend — bootstrap, then permanent test oracle | net10.0+ |
+| `Nbpf.Core` | syscalls, maps, links, ringbuf, relocation engine. Zero native deps. | net10.0+ |
+| `Nbpf.Btf` | BTF parser, shared with generator. **Built.** | netstandard2.0 |
+| `Nbpf.Elf` | ELF64 reader, shared with generator. **Built.** | netstandard2.0 |
+| `Nbpf.Build` | MSBuild targets, clang orchestration, `vmlinux.h` | — |
+| `Nbpf.SourceGen` | incremental generator — P1, P2, P3 | netstandard2.0 |
+| `Nbpf.Analyzers` | design-time verifier — P4 | netstandard2.0 |
+| `Nbpf.Testing` | `PROG_TEST_RUN`, packet builders, xunit helpers | net10.0+ |
+| `Nbpf.Tool` | `dotnet nbpf` global tool | net10.0+ |
+| `Nbpf.LibBpf` | libbpf P/Invoke backend — bootstrap, then permanent test oracle | net10.0+ |
 
 ---
 
@@ -730,7 +730,7 @@ Keep it firmly out of scope. Revisit after phase 8.
 ### An F# type provider over the same BTF parser
 
 Worth considering as a *side* deliverable rather than out of scope entirely.
-`Ebpf.Core` is a plain library; a type provider over the same BTF parser is a few
+`Nbpf.Core` is a plain library; a type provider over the same BTF parser is a few
 hundred lines and gets you erased types, real laziness, and the full vmlinux universe at
 no metadata cost — the thing C# cannot do.
 

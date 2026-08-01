@@ -5,19 +5,19 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{3E470E5F-F111-481D-821C-AF582E344319}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ebpf.Core", "src\Ebpf.Core\Ebpf.Core.csproj", "{FA722D0D-BA5C-4200-A193-238901A2E982}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nbpf.Core", "src\Nbpf.Core\Nbpf.Core.csproj", "{FA722D0D-BA5C-4200-A193-238901A2E982}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{C7D9C75E-4273-47F8-8378-328CE08E1C7C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ebpf.Core.Tests", "tests\Ebpf.Core.Tests\Ebpf.Core.Tests.csproj", "{94F4D568-F5E0-4445-B4F5-89080352AA04}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nbpf.Core.Tests", "tests\Nbpf.Core.Tests\Nbpf.Core.Tests.csproj", "{94F4D568-F5E0-4445-B4F5-89080352AA04}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ebpf.Btf", "src\Ebpf.Btf\Ebpf.Btf.csproj", "{B089E2C0-48C7-4818-B0BC-8893B69BF867}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nbpf.Btf", "src\Nbpf.Btf\Nbpf.Btf.csproj", "{B089E2C0-48C7-4818-B0BC-8893B69BF867}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ebpf.Btf.Tests", "tests\Ebpf.Btf.Tests\Ebpf.Btf.Tests.csproj", "{DD09411B-94FC-42B6-8963-4C9ABF592918}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nbpf.Btf.Tests", "tests\Nbpf.Btf.Tests\Nbpf.Btf.Tests.csproj", "{DD09411B-94FC-42B6-8963-4C9ABF592918}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ebpf.Elf", "src\Ebpf.Elf\Ebpf.Elf.csproj", "{D1B1329D-01AF-4B54-8867-540BDC83DAEB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nbpf.Elf", "src\Nbpf.Elf\Nbpf.Elf.csproj", "{D1B1329D-01AF-4B54-8867-540BDC83DAEB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ebpf.Elf.Tests", "tests\Ebpf.Elf.Tests\Ebpf.Elf.Tests.csproj", "{A840B60A-022A-4679-A790-38839DF9DDF9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nbpf.Elf.Tests", "tests\Nbpf.Elf.Tests\Nbpf.Elf.Tests.csproj", "{A840B60A-022A-4679-A790-38839DF9DDF9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

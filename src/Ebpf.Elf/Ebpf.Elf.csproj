@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <RootNamespace>Ebpf.Elf</RootNamespace>
-  </PropertyGroup>
-  <ItemGroup>
-    <Compile Include="../Shared/IsExternalInit.cs" Link="Shared/IsExternalInit.cs" />
-  </ItemGroup>
-</Project>
