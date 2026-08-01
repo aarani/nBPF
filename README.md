@@ -65,16 +65,18 @@ Phase 1 is in progress. Done so far:
   `BtfFormatException` rather than misparsing it. Verified against a checked-in
   `.BTF` section produced by a real clang.
 
-- **ELF reader** (`Ebpf.Elf`) — **specified, not implemented.** The public
-  surface and a 49-test suite exist and are written against a checked-in
-  clang-produced object; `ElfReader.Parse` throws `NotImplementedException`, so
-  those tests are red by design and are deliberately not wired into CI yet.
+- **ELF reader** (`Ebpf.Elf`) — ELF64 relocatable objects: sections with their
+  contents, symbols, and relocations already resolved back to the section they
+  apply to. Verified against a checked-in clang-produced object, with the
+  expectations taken from `llvm-readelf`. Malformed input yields
+  `ElfFormatException` and never a raw index error, which is covered by
+  truncating and corrupting the fixture across several hundred cases.
 
-Still to do in phase 1: implement that reader, then map / global-data /
-subprogram relocations. Not yet started: CO-RE, attachment beyond test-run, and
-all of the source-generator and design-time tooling described in DESIGN.md.
-There is no BPF program compiler here — programs are currently either
-hand-assembled or loaded from an already-compiled object.
+Still to do in phase 1: map / global-data / subprogram relocations. Not yet
+started: CO-RE, attachment beyond test-run, and all of the source-generator and
+design-time tooling described in DESIGN.md. There is no BPF program compiler
+here — programs are currently either hand-assembled or loaded from an
+already-compiled object.
 
 ## Building
 
@@ -87,11 +89,8 @@ dotnet build
 The BTF and ELF tests are pure parsing with no syscalls, so they run anywhere:
 
 ```bash
-dotnet test tests/Ebpf.Btf.Tests
+dotnet test tests/Ebpf.Btf.Tests tests/Ebpf.Elf.Tests
 ```
-
-(The ELF suite fails until the reader is implemented — see
-[Current status](#current-status).)
 
 Their fixtures are checked in, so clang is not needed to run them. If you
 change either `sample.bpf.c`, regenerate them with `eng/gen-fixtures.sh` (needs

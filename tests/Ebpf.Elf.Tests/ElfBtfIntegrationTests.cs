@@ -24,8 +24,9 @@ public class ElfBtfIntegrationTests
     {
         var graph = ParseEmbeddedBtf();
 
+        // Sorted: the order within the datasec is the linker's business, not something to pin.
         var maps = Assert.IsAssignableFrom<IBtfDatasec>(graph.Find(".maps", BtfKind.Datasec));
-        Assert.Equal(["events", "counts"], maps.Variables.Select(v => v.Variable.Name).Order());
+        Assert.Equal(["counts", "events"], maps.Variables.Select(v => v.Variable.Name).Order());
     }
 
     [Fact]
