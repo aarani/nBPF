@@ -6,9 +6,10 @@
 **Status:** the plan. Phases 0 and 1 are built — the ELF reader of
 [§4.2](#42-elf-reader), the BTF parser of [§4.3](#43-btf), and the map /
 global-data / subprogram relocations of [§4.4](#44-relocations) exist, so a
-real clang tracepoint object loads end to end. The CO-RE and extern steps of
-§4.4 belong to phase 2 and do not exist yet. Everything from phase 2 on is
-still design. See the README for what actually works today.
+real clang tracepoint object loads end to end. Phase 2 has started: the
+`.BTF.ext` parser exists, but the CO-RE relocation engine, vmlinux BTF, and
+the extern steps of §4.4 do not yet. Everything past that is still design.
+See the README for what actually works today.
 **Target:** .NET 10+ (library), netstandard2.0 (generators), Linux 5.4+ (runtime).
 
 ---
@@ -663,7 +664,7 @@ use — **resist the temptation to start there.**
 |---|---|---|---|
 | **0** | Syscall layer, map CRUD, hand-assembled program, ringbuf | A hand-written instruction array loads and emits events | ✅ done |
 | **1** | ELF + BTF parse; map / global / subprog relocations | Real clang output for a tracepoint loads on the build kernel | ✅ done — `BpfObject.Load` passes the exit criterion in the container tests |
-| **2** | CO-RE field relos, vmlinux BTF, feature probes | Same binary runs on 5.4 and 6.8 unmodified | — |
+| **2** | CO-RE field relos, vmlinux BTF, feature probes | Same binary runs on 5.4 and 6.8 unmodified | 🚧 in progress — `.BTF.ext` parser done |
 | **3** | Attachment breadth: XDP, TC/TCX, cgroup, fentry, netlink | XDP drop counter on a live NIC | — |
 | **4** | **P1** skeleton generator + MSBuild + templates | The [§3](#3-target-ux) snippet is the complete program | — |
 | **5** | **P4** design-time verifier analyzer | Verifier error appears as a squiggle on the right line of `.bpf.c` | — |

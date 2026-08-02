@@ -50,6 +50,13 @@ internal sealed class BtfCursor
 
     internal int ReadI32() => unchecked((int)ReadU32());
 
+    /// <summary>Advances past bytes whose meaning this parser does not know (forward compat).</summary>
+    internal void Skip(int bytes)
+    {
+        Require(bytes);
+        Position += bytes;
+    }
+
     private void Require(int bytes)
     {
         if (Remaining < bytes)

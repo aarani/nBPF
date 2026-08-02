@@ -4,8 +4,10 @@
 # Fixtures are committed so the test suites run anywhere, including hosts without clang.
 # Rerun this only when a sample.bpf.c changes, and commit the result.
 #
-#   tests/Nbpf.Btf.Tests/Fixtures/sample.btf     just the .BTF section
-#   tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o   the whole relocatable object
+#   tests/Nbpf.Btf.Tests/Fixtures/sample.btf         just the .BTF section
+#   tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf     .BTF of the ELF sample (companion of the pair below)
+#   tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf.ext .BTF.ext of the ELF sample (string offsets point into elf-sample.btf)
+#   tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o       the whole relocatable object
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -42,7 +44,15 @@ compile "$btf_src" "$tmp/btf-sample.o"
 elf_src="$root/tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.c"
 compile "$elf_src" "$root/tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o"
 
+# The .BTF.ext fixture must come with the .BTF from the *same* object — all of its
+# string offsets point into that section's string table.
+"$objcopy" --dump-section .BTF="$root/tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf" \
+           --dump-section .BTF.ext="$root/tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf.ext" \
+           "$root/tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o"
+
 for f in "$root/tests/Nbpf.Btf.Tests/Fixtures/sample.btf" \
+         "$root/tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf" \
+         "$root/tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf.ext" \
          "$root/tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o"; do
     echo "wrote ${f#"$root/"} ($(wc -c < "$f" | tr -d ' ') bytes)"
 done

@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Text;
 using Nbpf.Btf;
 
@@ -191,34 +192,18 @@ internal sealed class BtfBlobBuilder
 
     private void Write16(Stream s, ushort value)
     {
-        if (BigEndian)
-        {
-            s.WriteByte((byte)(value >> 8));
-            s.WriteByte((byte)value);
-        }
-        else
-        {
-            s.WriteByte((byte)value);
-            s.WriteByte((byte)(value >> 8));
-        }
+        Span<byte> buffer = stackalloc byte[2];
+        if (BigEndian) BinaryPrimitives.WriteUInt16BigEndian(buffer, value);
+        else BinaryPrimitives.WriteUInt16LittleEndian(buffer, value);
+        s.Write(buffer);
     }
 
     private void Write32(Stream s, uint value)
     {
-        if (BigEndian)
-        {
-            s.WriteByte((byte)(value >> 24));
-            s.WriteByte((byte)(value >> 16));
-            s.WriteByte((byte)(value >> 8));
-            s.WriteByte((byte)value);
-        }
-        else
-        {
-            s.WriteByte((byte)value);
-            s.WriteByte((byte)(value >> 8));
-            s.WriteByte((byte)(value >> 16));
-            s.WriteByte((byte)(value >> 24));
-        }
+        Span<byte> buffer = stackalloc byte[4];
+        if (BigEndian) BinaryPrimitives.WriteUInt32BigEndian(buffer, value);
+        else BinaryPrimitives.WriteUInt32LittleEndian(buffer, value);
+        s.Write(buffer);
     }
 
     internal readonly record struct Member(string Name, int TypeId, uint BitOffset, byte BitfieldSize = 0);

@@ -13,6 +13,6 @@
     <ProjectReference Include="../../src/Nbpf.Btf/Nbpf.Btf.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Fixtures/*.btf" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures/*.btf;Fixtures/*.btf.ext" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -83,8 +83,19 @@ Phase 1 is complete:
   host; the end-to-end load — real clang output accepted by the verifier, the
   phase 1 exit criterion — runs in the container tests.
 
-Next is phase 2: CO-RE relocations (`.BTF.ext`), vmlinux BTF, and feature
-probes; extern resolution (kconfig, kfuncs) also remains from
+Phase 2 (CO-RE) is in progress:
+
+- **`.BTF.ext` parser** (`Nbpf.Btf.BtfExtReader`) — func info, line info, and
+  CO-RE relocation records, grouped per ELF section, with strings resolved
+  through the companion `.BTF` section's string table. Handles both the legacy
+  24-byte and the modern 32-byte header, skips the unknown tail of oversized
+  records from newer producers, and rejects malformed input (zero-record
+  sections, undersized/misaligned record sizes, unknown relocation kinds) with
+  `BtfFormatException`. Verified against the `.BTF.ext`/`.BTF` pair dumped from
+  the checked-in clang object.
+
+Still to come in phase 2: the CO-RE relocation engine itself, vmlinux BTF, and
+feature probes; extern resolution (kconfig, kfuncs) also remains from
 [DESIGN.md §4.4](DESIGN.md#44-relocations). Not yet started: attachment beyond
 test-run, and all of the source-generator and design-time tooling described in
 DESIGN.md. There is no BPF program compiler here — programs are either
