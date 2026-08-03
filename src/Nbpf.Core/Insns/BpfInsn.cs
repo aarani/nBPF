@@ -28,6 +28,11 @@ public readonly struct BpfInsn(byte opCode, Reg dst, Reg src, short offset, int 
     /// <summary>Copy with a different imm — how relocations are patched in.</summary>
     internal BpfInsn WithImm(int newImm) => new(OpCode, Dst, Src, Offset, newImm);
 
+    /// <summary>Copy with a different offset — how relocations are patched in.</summary>
+    /// <param name="newOffset">The new offset, in bytes.</param>
+    /// <returns>A copy of this instruction with the new offset.</returns>
+    internal BpfInsn WithOffset(int newOffset) => new(OpCode, Dst, Src, checked((short)newOffset), Imm);
+
     /// <summary>Copy with a different src_reg and imm. src takes the raw 4-bit value
     /// because relocations store pseudo markers (not registers) in src_reg.</summary>
     internal BpfInsn WithSrcImm(byte src, int newImm) => new(OpCode, Dst, (Reg)src, Offset, newImm);

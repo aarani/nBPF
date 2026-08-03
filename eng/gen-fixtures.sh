@@ -4,10 +4,13 @@
 # Fixtures are committed so the test suites run anywhere, including hosts without clang.
 # Rerun this only when a sample.bpf.c changes, and commit the result.
 #
-#   tests/Nbpf.Btf.Tests/Fixtures/sample.btf         just the .BTF section
-#   tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf     .BTF of the ELF sample (companion of the pair below)
-#   tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf.ext .BTF.ext of the ELF sample (string offsets point into elf-sample.btf)
-#   tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o       the whole relocatable object
+#   tests/Nbpf.Btf.Tests/Fixtures/sample.btf          just the .BTF section
+#   tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf      .BTF of the ELF sample (companion of the pair below)
+#   tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf.ext  .BTF.ext of the ELF sample (string offsets point into elf-sample.btf)
+#   tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o        the whole relocatable object
+#   tests/Nbpf.Elf.Tests/Fixtures/core-sample.bpf.o   object carrying CO-RE relocations
+#   tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf     .BTF of the CO-RE sample
+#   tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf.ext .BTF.ext of the CO-RE sample
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -50,9 +53,20 @@ compile "$elf_src" "$root/tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o"
            --dump-section .BTF.ext="$root/tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf.ext" \
            "$root/tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o"
 
+# The CO-RE fixture: an object whose .BTF.ext actually carries core_relo records, for
+# the resolver fixture tests and the end-to-end CO-RE load in the container tests.
+core_src="$root/tests/Nbpf.Elf.Tests/Fixtures/core-sample.bpf.c"
+compile "$core_src" "$root/tests/Nbpf.Elf.Tests/Fixtures/core-sample.bpf.o"
+"$objcopy" --dump-section .BTF="$root/tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf" \
+           --dump-section .BTF.ext="$root/tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf.ext" \
+           "$root/tests/Nbpf.Elf.Tests/Fixtures/core-sample.bpf.o"
+
 for f in "$root/tests/Nbpf.Btf.Tests/Fixtures/sample.btf" \
          "$root/tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf" \
          "$root/tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf.ext" \
-         "$root/tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o"; do
+         "$root/tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o" \
+         "$root/tests/Nbpf.Elf.Tests/Fixtures/core-sample.bpf.o" \
+         "$root/tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf" \
+         "$root/tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf.ext"; do
     echo "wrote ${f#"$root/"} ($(wc -c < "$f" | tr -d ' ') bytes)"
 done

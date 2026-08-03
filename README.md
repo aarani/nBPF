@@ -94,9 +94,29 @@ Phase 2 (CO-RE) is in progress:
   `BtfFormatException`. Verified against the `.BTF.ext`/`.BTF` pair dumped from
   the checked-in clang object.
 
-Still to come in phase 2: the CO-RE relocation engine itself, vmlinux BTF, and
-feature probes; extern resolution (kconfig, kfuncs) also remains from
-[DESIGN.md §4.4](DESIGN.md#44-relocations). Not yet started: attachment beyond
+- **CO-RE engine** — `Nbpf.Btf.CoreReloResolver` resolves all thirteen
+  relocation kinds against target BTF with libbpf's `relo_core.c` semantics:
+  access-spec parsing, flavor-stripped candidate matching (with the
+  ambiguity check across agreeing candidates), anonymous-member traversal,
+  bitfield load computation, and the exists-probe-zero vs. poison split for
+  missing targets. `Nbpf.Core.ObjectFile.CoreRelocator.Patch` applies a
+  resolved value to the right instruction field (memory offset, ALU
+  immediate, or two-slot `ld_imm64`), validating baked-in values and
+  poisoning unresolvable instructions with the invalid-call marker.
+  `Nbpf.Core.KernelBtf` loads `/sys/kernel/btf/vmlinux`, and
+  `BpfObject.Load` applies it all automatically — kernel BTF is the default
+  relocation target, or pass a `BpfLoadOptions` with an explicit graph for
+  tests and cross-kernel tooling. Verified against blob-built type graphs
+  case by case, a dedicated CO-RE clang fixture (`core-sample.bpf.c`), and
+  end-to-end loads in the container tests, including the poison path (a
+  wrong-target load is rejected by the verifier exactly because the
+  unguarded access was poisoned). Note: the two tests needing the *running*
+  kernel's BTF skip under Docker Desktop, whose linuxkit kernel lacks
+  `CONFIG_DEBUG_INFO_BTF` — CI's Ubuntu kernel covers them.
+
+Still to come in phase 2: the cross-kernel matrix for the exit criterion
+(same binary on 5.4 and 6.8) and feature probes; extern resolution (kconfig,
+kfuncs) also remains from [DESIGN.md §4.4](DESIGN.md#44-relocations). Not yet started: attachment beyond
 test-run, and all of the source-generator and design-time tooling described in
 DESIGN.md. There is no BPF program compiler here — programs are either
 hand-assembled or loaded from an already-compiled object.

@@ -8,12 +8,15 @@ namespace Nbpf.Core.Insns;
 public static class Asm
 {
     // Opcode classes / modes, or'd together per instruction below.
-    private const byte BPF_LD = 0x00, BPF_LDX = 0x01, BPF_ST = 0x02, BPF_STX = 0x03,
-                       BPF_ALU64 = 0x07, BPF_JMP = 0x05;
-    private const byte BPF_K = 0x00, BPF_X = 0x08;
-    private const byte BPF_MOV = 0xb0, BPF_ADD = 0x00;
-    private const byte BPF_IMM = 0x00, BPF_MEM = 0x60, BPF_DW = 0x18, BPF_W = 0x00;
-    private const byte BPF_EXIT = 0x90, BPF_CALL = 0x80, BPF_JEQ = 0x10;
+    internal const byte BPF_LD = 0x00, BPF_LDX = 0x01, BPF_ST = 0x02, BPF_STX = 0x03,
+                       BPF_ALU = 0x04, BPF_ALU64 = 0x07, BPF_JMP = 0x05;
+
+    /// <summary>Mask isolating the class bits of an opcode (BPF_CLASS in the kernel).</summary>
+    internal const byte ClassMask = 0x07;
+    internal const byte BPF_K = 0x00, BPF_X = 0x08;
+    internal const byte BPF_MOV = 0xb0, BPF_ADD = 0x00;
+    internal const byte BPF_IMM = 0x00, BPF_MEM = 0x60, BPF_DW = 0x18, BPF_W = 0x00;
+    internal const byte BPF_EXIT = 0x90, BPF_CALL = 0x80, BPF_JEQ = 0x10;
 
     /// <summary>src_reg value marking a ld_imm64 whose imm is a map fd.</summary>
     public const byte PseudoMapFd = 1;

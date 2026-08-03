@@ -6,11 +6,12 @@ using Nbpf.Elf;
 namespace Nbpf.Core.ObjectFile;
 
 /// <summary>
-/// A relocated and loaded compiled BPF object (a clang `.bpf.o`): every map
-/// created, every global-data section materialized, every program accepted by
-/// the verifier. Owns all the resulting fds. CO-RE relocations, externs, and
-/// attachment are not handled yet — programs load but must be attached by the
-/// caller once attachment exists.
+/// A relocated and loaded compiled BPF object (a clang `.bpf.o`): CO-RE
+/// relocations applied against the target kernel's BTF, every map created,
+/// every global-data section materialized, every program accepted by the
+/// verifier. Owns all the resulting fds. Externs and attachment are not
+/// handled yet — programs load but must be attached by the caller once
+/// attachment exists.
 /// </summary>
 public sealed class BpfObject : IDisposable
 {
@@ -28,12 +29,14 @@ public sealed class BpfObject : IDisposable
         Programs = programs;
     }
 
-    public static BpfObject Load(byte[] objectFile)
+    public static BpfObject Load(byte[] objectFile, BpfLoadOptions? options = null)
     {
         var elf = ElfReader.Read(objectFile);
         var btf = elf.FindSection(".BTF") is { } btfSection
             ? BtfReader.Read(btfSection.Data)
             : null;
+
+        ApplyCoreRelocations(elf, btf, options);
 
         var maps = new Dictionary<string, BpfObjectMap>();
         var programs = new Dictionary<string, BpfProgram>();
@@ -59,6 +62,26 @@ public sealed class BpfObject : IDisposable
         }
 
         return new BpfObject(maps, programs);
+    }
+
+    /// <summary>CO-RE, applied before any linking (DESIGN §4.4 step 4). Kernel BTF is
+    /// only loaded when the object actually carries relocations, so non-CO-RE objects
+    /// keep loading on kernels without <c>/sys/kernel/btf/vmlinux</c>.</summary>
+    private static void ApplyCoreRelocations(
+        IElfObject elf, IBtfTypeGraph? btf, BpfLoadOptions? options)
+    {
+        if (elf.FindSection(".BTF.ext") is not { } extSection)
+            return;
+        if (btf is null)
+            throw new InvalidDataException(
+                "The object has a .BTF.ext section but no .BTF section to resolve it against.");
+
+        var extInfo = BtfExtReader.Read(extSection.Data, elf.FindSection(".BTF")!.Data);
+        if (extInfo.CoreRelos.Count == 0)
+            return;
+
+        var target = options?.TargetBtf ?? KernelBtf.LoadVmlinux();
+        CoreRelocator.Apply(elf, btf, extInfo, target, new CoreReloResolver());
     }
 
     private static BpfObjectMap CreateMap(in BpfMapSpec spec)

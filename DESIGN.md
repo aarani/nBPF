@@ -6,10 +6,13 @@
 **Status:** the plan. Phases 0 and 1 are built — the ELF reader of
 [§4.2](#42-elf-reader), the BTF parser of [§4.3](#43-btf), and the map /
 global-data / subprogram relocations of [§4.4](#44-relocations) exist, so a
-real clang tracepoint object loads end to end. Phase 2 has started: the
-`.BTF.ext` parser exists, but the CO-RE relocation engine, vmlinux BTF, and
-the extern steps of §4.4 do not yet. Everything past that is still design.
-See the README for what actually works today.
+real clang tracepoint object loads end to end. Phase 2's CO-RE engine is
+built: `.BTF.ext` parsing, the resolver, the instruction patcher, and vmlinux
+BTF loading, wired into `BpfObject.Load` and verified end to end in the
+container tests against a suite pinning libbpf's semantics. Still open in
+phase 2: the cross-kernel matrix that proves the exit criterion (5.4 and 6.8),
+feature probes, and the extern steps of §4.4. Everything past that is still
+design. See the README for what actually works today.
 **Target:** .NET 10+ (library), netstandard2.0 (generators), Linux 5.4+ (runtime).
 
 ---

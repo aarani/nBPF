@@ -19,5 +19,7 @@
          relocation tests here must see exactly what the ELF reader tests see. -->
     <None Include="../Nbpf.Elf.Tests/Fixtures/sample.bpf.o"
           Link="Fixtures/sample.bpf.o" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Nbpf.Elf.Tests/Fixtures/core-sample.bpf.o"
+          Link="Fixtures/core-sample.bpf.o" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
