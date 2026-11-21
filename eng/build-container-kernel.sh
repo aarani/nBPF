@@ -49,6 +49,13 @@ case "$kernel_version" in
         tarball_sha256=020d45510c539972e6f14c5c71566878d3b7ef56fb082b3e09134f2ebaade562
         base_config=kata-6.18.15.config
         ;;
+    6.8.12)
+        # Last 6.8 stable; phase 2's "6.8" kernel. Kata's 6.18 config is the base:
+        # olddefconfig drops what 6.8 doesn't know, and the fragment check below
+        # catches anything BPF-related that drops with it.
+        tarball_sha256=19b31956d229b5b9ca5671fa1c74320179682a3d8d00fc86794114b21da86039
+        base_config=kata-6.18.15.config
+        ;;
     *)
         echo "error: no pinned sha256/base config for kernel $kernel_version; add it to $0" >&2
         exit 1
