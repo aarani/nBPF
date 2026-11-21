@@ -44,10 +44,12 @@ source "$root/eng/container-runtime.sh"
 kernel_version="${KERNEL_VERSION:-6.18.64}"
 
 # version -> sha256 of linux-<version>.tar.xz (from kernel.org's signed
-# sha256sums.asc) and the base config it starts from. Older kernels (5.4, 6.8 for
-# phase 2's cross-kernel run) need their own base config and possibly an older
-# builder image, since current gcc/pahole may not build them.
+# sha256sums.asc), the base config it starts from, extra fragments, and the
+# builder image. Old kernels need an old toolchain: current gcc and pahole don't
+# build them cleanly, and a new pahole writes BTF kinds an old kernel can't read
+# back, so it would reject its own vmlinux BTF.
 extra_fragments=""  # space-separated, merged after nbpf.config
+builder_image=debian:trixie-slim
 case "$kernel_version" in
     6.18.64)
         tarball_sha256=020d45510c539972e6f14c5c71566878d3b7ef56fb082b3e09134f2ebaade562
@@ -60,6 +62,14 @@ case "$kernel_version" in
         tarball_sha256=19b31956d229b5b9ca5671fa1c74320179682a3d8d00fc86794114b21da86039
         base_config=kata-6.18.15.config
         extra_fragments=nbpf-pre-6.10.config
+        ;;
+    5.4.302)
+        # Last 5.4 LTS; phase 2's "5.4" kernel. Built with Debian bullseye's
+        # toolchain (gcc 10, pahole 1.20), contemporary with it.
+        tarball_sha256=ae6a3207f12aa4d6cfb0fa793ec9da4a6fcdfdcb57d869d63d6b77e3a8c1423d
+        base_config=kata-6.18.15.config
+        extra_fragments=nbpf-pre-6.10.config
+        builder_image=debian:bullseye-slim
         ;;
     *)
         echo "error: no pinned sha256/base config for kernel $kernel_version; add it to $0" >&2
@@ -86,7 +96,7 @@ exec "$CONTAINER_RUNTIME" run --rm -i ${resources[@]+"${resources[@]}"} "${mount
     -e KV="$kernel_version" -e SHA="$tarball_sha256" -e BASE="$base_config" \
     -e EXTRA_FRAGMENTS="$extra_fragments" \
     -e CONFIG_ONLY="${CONFIG_ONLY:-}" \
-    debian:trixie-slim bash -s <<'EOF'
+    "$builder_image" bash -s <<'EOF'
 set -euo pipefail
 
 if [ "$(uname -m)" != aarch64 ]; then
@@ -94,7 +104,15 @@ if [ "$(uname -m)" != aarch64 ]; then
     exit 1
 fi
 
-apt-get update -qq >/dev/null
+if ! apt-get update -qq >/dev/null 2>&1; then
+    # Releases past their support window move from deb.debian.org and
+    # security.debian.org to archive.debian.org; point at it and retry.
+    echo "apt mirrors failed; retrying via archive.debian.org" >&2
+    sed -i -e 's|deb.debian.org|archive.debian.org|g' \
+           -e 's|security.debian.org|archive.debian.org|g' \
+           /etc/apt/sources.list $(ls /etc/apt/sources.list.d/* 2>/dev/null || true)
+    apt-get update -qq >/dev/null
+fi
 # dwarves = pahole, which DEBUG_INFO_BTF needs both at configure and link time.
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
     bc bison build-essential ca-certificates cpio curl dwarves flex kmod libelf-dev \

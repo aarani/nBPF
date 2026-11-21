@@ -42,7 +42,7 @@ jobs:
         # Each needs a pinned sha256 and base config in eng/build-container-kernel.sh.
         # Pushes and PRs build all of them, since the script and fragments they touch
         # are shared; a manual run can name just the ones it needs.
-        kernel: ${{ fromJSON(inputs.kernels || '["6.18.64", "6.8.12"]') }}
+        kernel: ${{ fromJSON(inputs.kernels || '["6.18.64", "6.8.12", "5.4.302"]') }}
     steps:
       - uses: actions/checkout@v4
       - name: Build kernel
