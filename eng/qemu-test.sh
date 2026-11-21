@@ -71,8 +71,8 @@ timeout "${QEMU_TIMEOUT:-1800}" qemu-system-x86_64 "${accel[@]}" \
     -device virtio-9p-pci,fsdev=checkout,mount_tag=nbpf \
     || status=$?
 
-# The complete test output, as the guest wrote it; the console copy above may be cut
-# short.
+# The test output, which the guest writes to a file rather than the slow serial
+# console (see eng/qemu-init.sh).
 if [ -f "$state/output.log" ]; then
     echo "=== test output from the guest ($state/output.log) ==="
     cat "$state/output.log"

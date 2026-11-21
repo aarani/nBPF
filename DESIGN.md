@@ -11,12 +11,13 @@ built: `.BTF.ext` parsing, the resolver, the instruction patcher, and vmlinux
 BTF loading, wired into `BpfObject.Load` and verified end to end in the
 container tests against a suite pinning libbpf's semantics. Its offline
 cross-kernel check is in place: relocations resolve correctly against real
-5.4 and 6.8 vmlinux BTF (see [§8.3](#83-co-re-portability-matrix-in-ci)). The live 6.8 half
-passes too: the Linux suite, including CO-RE against the booted kernel's own
-BTF, runs clean on 6.8.12 under Apple `container` (§8.4). Still open in phase 2:
-the live 5.4 half, the probes of §4.5 that wait on attachment, and the extern
-steps of §4.4. The feature probe module itself is built (§4.5).
-Everything past that is still design. See the README for what actually works today.
+5.4 and 6.8 vmlinux BTF (see [§8.3](#83-co-re-portability-matrix-in-ci)). The feature probe
+module is built (§4.5), and the exit criterion holds on booted kernels: the Linux
+suite, including CO-RE against the running kernel's own BTF, passes on 6.8.12
+under Apple `container` and on 5.4.302 in QEMU in CI (§8.4). That completes
+phase 2. Carried over, by decision rather than oversight: the probes of §4.5 that
+wait on attachment land with phase 3, and the extern steps of §4.4 are
+unscheduled. Everything past that is still design. See the README for what actually works today.
 **Target:** .NET 10+ (library), netstandard2.0 (generators), Linux 5.4+ (runtime).
 
 ---
@@ -668,8 +669,9 @@ A matrix of VMs (5.4, 5.10, 5.15, 6.1, 6.8) for the attach paths that
 `PROG_TEST_RUN` cannot cover — XDP on a real NIC, tc/clsact, cgroup.
 Slower and separate from the main CI loop.
 
-**Built so far:** the kernel side of the local VM route.
-`eng/build-kernel.sh` builds an arm64 kernel that Apple's `container`
+**Built so far:** two VM routes, one local and one in CI.
+
+*Local (Apple `container`).* `eng/build-kernel.sh` builds an arm64 kernel that Apple's `container`
 boots per container (`container run -k`, wired through `CONTAINER_KERNEL` in
 `eng/container-runtime.sh`): Apple's default kernel config plus a checked-in
 BPF/tracing fragment, from a pinned kernel.org tarball, built by the *Container
@@ -678,11 +680,27 @@ version: a pinned sha256, a base config, and extra fragments per version. 6.18.6
 is the everyday kernel. 6.8.12, the live 6.8 half of phase 2's exit criterion,
 reuses the 6.18 base config plus `nbpf-pre-6.10.config`, which enables module
 support because `BPF_JIT` and `KPROBES` depend on it before 6.10. The whole suite
-passes on it. 5.4 is the open entry: it likely needs an older builder image
-(current gcc and pahole don't target it cleanly), and Apple's in-VM init may use
-syscalls that 5.4 lacks. Prebuilt distro kernels
-are not an option here: they build vsock, virtiofs and overlayfs as modules, and
-`container` boots without an initramfs.
+passes on it. Prebuilt distro kernels are not an option here: they build vsock,
+virtiofs and overlayfs as modules, and `container` boots without an initramfs.
+The route ends below 5.6: a 5.4 kernel builds and boots, but Apple's in-VM agent
+can't start a process on it (`ENOSYS`, most likely `openat2`).
+
+*CI (QEMU).* The *Live kernels* workflow runs the suite on such kernels in
+QEMU/KVM on a GitHub runner, with plain QEMU and no VM tooling. `build-kernel.sh`'s
+`qemu` flavor builds an x86_64 bzImage from the kernel's own defconfig and KVM
+guest config plus the same BPF fragments. Old kernels get an old builder image:
+5.4.302 builds in Debian bullseye (gcc 10, pahole 1.20), from `archive.debian.org`.
+`eng/qemu-test.sh` boots it on the runner's own root filesystem (read-only 9p)
+with the checkout writable, and `eng/qemu-init.sh` runs the prebuilt tests as
+the guest's init. Bring-up lessons, each now a comment in the scripts:
+- The guest's mounts over 9p directories vanish unless the root share uses the
+  default cache mode and `multidevs=remap`.
+- `dotnet test` needs loopback up.
+- Output must go to a file, not only the slow serial console.
+
+On 5.4.302: 75 pass, and 8 skip because there's no ring buffer. This is the
+matrix to grow toward the five kernels above, and to carry the attach-path tests
+once phase 3 builds them.
 
 ---
 
@@ -691,6 +709,9 @@ are not an option here: they build vsock, virtiofs and overlayfs as modules, and
 - **Preflight capability check** with actionable messages. `CAP_BPF` + `CAP_PERFMON`
   (5.8+), `CAP_NET_ADMIN` for network attach; `CAP_SYS_ADMIN` on older kernels.
 - **Both memory-accounting regimes:** `RLIMIT_MEMLOCK` bumping pre-5.11, memcg after.
+  *Not built yet.* The 5.4 run (§8.4) passes only because its test maps fit in the
+  default 64 KiB memlock limit the guest had. A real program's maps on 5.4–5.10
+  would fail with `EPERM` until the loader raises the limit.
 - **Split privilege model.** A small privileged loader pins programs and maps under
   `/sys/fs/bpf`, then the unprivileged C# service opens the pinned maps by path. Good
   security posture, and it makes rolling app restarts non-disruptive since the programs
@@ -725,7 +746,7 @@ use — **resist the temptation to start there.**
 |---|---|---|---|
 | **0** | Syscall layer, map CRUD, hand-assembled program, ringbuf | A hand-written instruction array loads and emits events | ✅ done |
 | **1** | ELF + BTF parse; map / global / subprog relocations | Real clang output for a tracepoint loads on the build kernel | ✅ done — `BpfObject.Load` passes the exit criterion in the container tests |
-| **2** | CO-RE field relos, vmlinux BTF, feature probes | Same binary runs on 5.4 and 6.8 unmodified | 🚧 in progress — CO-RE engine done and resolves correctly against real 5.4/6.8 BTF offline; feature probes and the probe_read fallback done; live 6.8 passes; live 5.4 remains |
+| **2** | CO-RE field relos, vmlinux BTF, feature probes | Same binary runs on 5.4 and 6.8 unmodified | ✅ done — the suite passes on booted 6.8.12 (Apple `container`) and 5.4.302 (QEMU in CI); the attachment-dependent probes move to phase 3 |
 | **3** | Attachment breadth: XDP, TC/TCX, cgroup, fentry, netlink | XDP drop counter on a live NIC | — |
 | **4** | **P1** skeleton generator + MSBuild + templates | The [§3](#3-target-ux) snippet is the complete program | — |
 | **5** | **P4** design-time verifier analyzer | Verifier error appears as a squiggle on the right line of `.bpf.c` | — |
