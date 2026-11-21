@@ -1,0 +1,63 @@
+name: Live kernels
+
+# Runs the Linux test suite on specific kernels, booted in QEMU/KVM on the runner
+# (eng/qemu-test.sh): phase 2's live exit criterion for kernels Apple's `container`
+# can't run (5.4). Each kernel is built by eng/build-kernel.sh's qemu flavor and
+# cached under a key over everything that shapes it, so it is only rebuilt when the
+# build script or a fragment changes.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.kernel }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        # Each needs a pinned sha256 in eng/build-kernel.sh.
+        kernel: ["5.4.302"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore kernel
+        id: kernel-cache
+        uses: actions/cache@v4
+        with:
+          path: artifacts/kernel
+          key: qemu-kernel-${{ matrix.kernel }}-${{ hashFiles('eng/build-kernel.sh', 'eng/kernel/**') }}
+
+      - name: Build kernel
+        if: steps.kernel-cache.outputs.cache-hit != 'true'
+        run: ./eng/build-kernel.sh
+        env:
+          KERNEL_FLAVOR: qemu
+          KERNEL_VERSION: ${{ matrix.kernel }}
+
+      - name: Install QEMU and enable KVM
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends qemu-system-x86 >/dev/null
+          # Hosted runners have KVM, but /dev/kvm isn't open to the runner user.
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Build tests
+        run: dotnet build tests/Nbpf.Core.Tests -c Release
+
+      - name: Run tests on ${{ matrix.kernel }}
+        run: ./eng/qemu-test.sh artifacts/kernel/bzImage-${{ matrix.kernel }}-nbpf

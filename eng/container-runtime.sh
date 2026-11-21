@@ -12,7 +12,7 @@
 # DEBUG_INFO_BTF: maps, ring buffers and socket-filter programs work, tracepoint
 # programs fail with EINVAL and vmlinux BTF is absent. CONTAINER_KERNEL=<vmlinux path>
 # boots a BPF-capable kernel instead (`container run -k`; container runtime only),
-# e.g. the one eng/build-container-kernel.sh builds.
+# e.g. the one eng/build-kernel.sh builds.
 
 if [ -z "${CONTAINER_RUNTIME:-}" ]; then
     if [ "$(uname -s)" = Darwin ] && command -v container >/dev/null; then

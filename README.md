@@ -41,7 +41,7 @@ eng/test-linux.sh      Runs the Linux-only tests in a privileged container
 eng/container-runtime.sh  Picks Apple `container` (macOS) or docker for the above
 eng/gen-fixtures.sh    Regenerates the checked-in test fixtures via clang
 eng/gen-kernel-btf.sh  Regenerates the minimized 5.4/6.8 kernel BTF fixtures
-eng/build-container-kernel.sh  Builds a BPF-capable arm64 kernel for Apple `container`
+eng/build-kernel.sh  Builds a BPF-capable arm64 kernel for Apple `container`
 eng/kernel/            Its base config (Apple's default kernel) and BPF fragments
 ```
 
@@ -119,7 +119,7 @@ Phase 2 (CO-RE) is in progress:
   kernel's BTF skip under Docker Desktop's linuxkit kernel and Apple
   `container`'s default kernel (neither has `CONFIG_DEBUG_INFO_BTF`); CI's
   Ubuntu kernel covers them, and so does the kernel from
-  `eng/build-container-kernel.sh` locally (see Testing).
+  `eng/build-kernel.sh` locally (see Testing).
 
 - **Cross-kernel resolution, offline** — one object
   (`core-kernels.bpf.c`) resolved against the real vmlinux BTF of Ubuntu's
@@ -233,7 +233,7 @@ kernel phase 2's cross-kernel exit criterion boots.
 
 Each kernel is Apple's default kernel config (`eng/kernel/kata-6.18.15.config`)
 plus the BPF and tracing options in `eng/kernel/nbpf.config`, built from a pinned
-kernel.org tarball by `eng/build-container-kernel.sh`. Kernels before 6.10 also
+kernel.org tarball by `eng/build-kernel.sh`. Kernels before 6.10 also
 merge `eng/kernel/nbpf-pre-6.10.config`, which turns on module support: until
 then, `BPF_JIT` and `KPROBES` depend on it. Prebuilt distro kernels
 don't work here: they ship vsock, virtiofs and overlayfs as modules, and
@@ -248,9 +248,9 @@ gh workflow run container-kernel.yml -R aarani/nBPF -f kernels='["6.8.12"]'
 ```
  Artifacts expire after 90 days; rerun the workflow from the
 Actions tab to get a fresh one. To build locally anyway, run
-`eng/build-container-kernel.sh` (`KERNEL_VERSION` picks the version; output in
+`eng/build-kernel.sh` (`KERNEL_VERSION` picks the version; output in
 `artifacts/kernel/`, git-ignored). After editing a fragment,
-`CONFIG_ONLY=1 eng/build-container-kernel.sh` checks
+`CONFIG_ONLY=1 eng/build-kernel.sh` checks
 in about a minute, without compiling, that every option in it survives `make
 olddefconfig`.
 

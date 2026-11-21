@@ -1,35 +1,48 @@
 #!/usr/bin/env bash
-# Builds an arm64 Linux kernel that Apple's `container` can boot (`container run -k`)
-# with everything the nBPF test suite needs: tracepoint/kprobe programs, the BPF JIT,
-# /sys/kernel/btf/vmlinux, AF_XDP and tc BPF. Apple's default (Kata) kernel has none of
-# those beyond BPF_SYSCALL; see eng/container-runtime.sh.
+# Builds a Linux kernel with everything the nBPF test suite needs (tracepoint/kprobe
+# programs, the BPF JIT, /sys/kernel/btf/vmlinux, AF_XDP, tc BPF), in one of two
+# flavors (KERNEL_FLAVOR):
 #
-#   config = eng/kernel/kata-<ver>.config  Apple's default kernel config, verbatim
-#                                          (it boots: virtio, vsock, virtiofs built in,
-#                                          no modules, no initramfs needed)
-#          + eng/kernel/nbpf.config        the BPF/tracing options on top
-#          + eng/kernel/nbpf-pre-6.10.config  for kernels before 6.10 only:
-#                                          module support, which BPF_JIT and
-#                                          KPROBES depend on there
+#   container (default)  arm64, for Apple's `container` (`container run -k`, see
+#                        eng/container-runtime.sh). Apple's default (Kata) kernel has
+#                        none of the above beyond BPF_SYSCALL.
+#     config = eng/kernel/kata-<ver>.config  Apple's default kernel config, verbatim
+#                                            (it boots: virtio, vsock, virtiofs built
+#                                            in, no modules, no initramfs needed)
+#
+#   qemu                 x86_64, for eng/qemu-test.sh on a CI runner. This is the
+#                        route for kernels Apple's `container` can't run processes on:
+#                        its in-VM agent fails on 5.4 with ENOSYS, most likely for
+#                        openat2 (5.6).
+#     config = x86_64 defconfig + the kernel's own KVM guest config
+#            + eng/kernel/qemu-x86.config   9p root, serial console, debug info
+#
+#   either + eng/kernel/nbpf.config          the BPF/tracing options on top
+#          + eng/kernel/nbpf-pre-6.10.config for kernels before 6.10 only: module
+#                                            support, which BPF_JIT and KPROBES
+#                                            depend on there
 #
 # Every option in the fragments is checked against the final .config, so an option
 # that `make olddefconfig` drops for an unmet dependency fails the build instead of
 # producing a kernel that quietly lacks it.
 #
 # Output, in OUT_DIR (default artifacts/kernel/, git-ignored):
-#   vmlinux-<ver>-nbpf   uncompressed arm64 Image (named like Apple's own kernels)
+#   vmlinux-<ver>-nbpf   container: uncompressed arm64 Image (named like Apple's own)
+#   bzImage-<ver>-nbpf   qemu: x86_64 bzImage
 #   config-<ver>-nbpf    the final .config
 #   SHA256SUMS
 #
 # Then: CONTAINER_KERNEL=artifacts/kernel/vmlinux-<ver>-nbpf eng/test-linux.sh
+#   or: eng/qemu-test.sh artifacts/kernel/bzImage-<ver>-nbpf
 #
-# The build normally runs in CI (.github/workflows/container-kernel.yml, on a native
-# arm64 runner, which uploads the result as a workflow artifact); locally it needs
-# a machine with a few GB of RAM to spare. It runs in a Debian container via
-# eng/container-runtime.sh and needs network access.
+# The build runs in CI, on a native runner for the flavor's architecture
+# (.github/workflows/container-kernel.yml, .github/workflows/live-kernels.yml); it
+# needs a few GB of RAM. It runs in a Debian container via eng/container-runtime.sh
+# and needs network access.
 #
+#   KERNEL_FLAVOR=container|qemu  see above (default container)
 #   KERNEL_VERSION=<x.y.z>  kernel to build (default below); each version needs a
-#                           pinned sha256 and a base config in the table below
+#                           pinned sha256 in the table below
 #   CONFIG_ONLY=1           stop after producing and checking the .config (cheap:
 #                           no compile, a good first check after editing the fragment)
 #   OUT_DIR=<dir>           where outputs go
@@ -42,9 +55,10 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$root/eng/container-runtime.sh"
 
 kernel_version="${KERNEL_VERSION:-6.18.64}"
+flavor="${KERNEL_FLAVOR:-container}"
 
 # version -> sha256 of linux-<version>.tar.xz (from kernel.org's signed
-# sha256sums.asc), the base config it starts from, extra fragments, and the
+# sha256sums.asc), the container flavor's base config, extra fragments, and the
 # builder image. Old kernels need an old toolchain: current gcc and pahole don't
 # build them cleanly, and a new pahole writes BTF kinds an old kernel can't read
 # back, so it would reject its own vmlinux BTF.
@@ -65,7 +79,9 @@ case "$kernel_version" in
         ;;
     5.4.302)
         # Last 5.4 LTS; phase 2's "5.4" kernel. Built with Debian bullseye's
-        # toolchain (gcc 10, pahole 1.20), contemporary with it.
+        # toolchain (gcc 10, pahole 1.20), contemporary with it. The container flavor
+        # builds and boots, but Apple's agent can't start processes on it (see the
+        # top of this file); the qemu flavor is the one that runs the tests.
         tarball_sha256=ae6a3207f12aa4d6cfb0fa793ec9da4a6fcdfdcb57d869d63d6b77e3a8c1423d
         base_config=kata-6.18.15.config
         extra_fragments=nbpf-pre-6.10.config
@@ -73,6 +89,23 @@ case "$kernel_version" in
         ;;
     *)
         echo "error: no pinned sha256/base config for kernel $kernel_version; add it to $0" >&2
+        exit 1
+        ;;
+esac
+
+case "$flavor" in
+    container)
+        arch=aarch64 image=arch/arm64/boot/Image make_target=Image out_name=vmlinux
+        ;;
+    qemu)
+        # The kernel's own defaults plus its KVM guest config (`make kvmconfig`
+        # before 5.10, `make kvm_guest.config` after) instead of a checked-in base.
+        base_config=@x86-defconfig-kvm
+        extra_fragments="$extra_fragments qemu-x86.config"
+        arch=x86_64 image=arch/x86/boot/bzImage make_target=bzImage out_name=bzImage
+        ;;
+    *)
+        echo "error: KERNEL_FLAVOR must be container or qemu, not '$flavor'" >&2
         exit 1
         ;;
 esac
@@ -95,12 +128,14 @@ fi
 exec "$CONTAINER_RUNTIME" run --rm -i ${resources[@]+"${resources[@]}"} "${mounts[@]}" \
     -e KV="$kernel_version" -e SHA="$tarball_sha256" -e BASE="$base_config" \
     -e EXTRA_FRAGMENTS="$extra_fragments" \
+    -e ARCH_EXPECTED="$arch" -e IMAGE="$image" -e MAKE_TARGET="$make_target" \
+    -e OUT_NAME="$out_name" \
     -e CONFIG_ONLY="${CONFIG_ONLY:-}" \
     "$builder_image" bash -s <<'EOF'
 set -euo pipefail
 
-if [ "$(uname -m)" != aarch64 ]; then
-    echo "error: this builds an arm64 kernel natively; the container is $(uname -m)" >&2
+if [ "$(uname -m)" != "$ARCH_EXPECTED" ]; then
+    echo "error: this flavor builds a $ARCH_EXPECTED kernel natively; the container is $(uname -m)" >&2
     exit 1
 fi
 
@@ -142,7 +177,14 @@ cd "linux-$KV"
 
 fragments=(/src/eng/kernel/nbpf.config)
 for extra in $EXTRA_FRAGMENTS; do fragments+=("/src/eng/kernel/$extra"); done
-scripts/kconfig/merge_config.sh -m "/src/eng/kernel/$BASE" "${fragments[@]}" >/dev/null
+if [ "$BASE" = @x86-defconfig-kvm ]; then
+    make -s defconfig
+    make -s kvm_guest.config 2>/dev/null || make -s kvmconfig
+    base=.config
+else
+    base="/src/eng/kernel/$BASE"
+fi
+scripts/kconfig/merge_config.sh -m "$base" "${fragments[@]}" >/dev/null
 make -s olddefconfig
 
 missing=0
@@ -162,9 +204,9 @@ if [ -n "$CONFIG_ONLY" ]; then
     exit 0
 fi
 
-make -s -j"$(nproc)" Image
-cp arch/arm64/boot/Image "/out/vmlinux-$suffix"
+make -s -j"$(nproc)" "$MAKE_TARGET"
+cp "$IMAGE" "/out/$OUT_NAME-$suffix"
 cd /out
-sha256sum "vmlinux-$suffix" "config-$suffix" > SHA256SUMS
+sha256sum "$OUT_NAME-$suffix" "config-$suffix" > SHA256SUMS
 cat SHA256SUMS
 EOF
