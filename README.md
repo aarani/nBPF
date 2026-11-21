@@ -117,8 +117,8 @@ Phase 2 (CO-RE) is in progress:
   unguarded access was poisoned). Note: the two tests needing the *running*
   kernel's BTF skip under Docker Desktop's linuxkit kernel and Apple
   `container`'s default kernel (neither has `CONFIG_DEBUG_INFO_BTF`); CI's
-  Ubuntu kernel covers them, and locally the kernel from
-  `eng/build-container-kernel.sh` is meant to (see Testing).
+  Ubuntu kernel covers them, and so does the kernel from
+  `eng/build-container-kernel.sh` locally (see Testing).
 
 - **Cross-kernel resolution, offline** — one object
   (`core-kernels.bpf.c`) resolved against the real vmlinux BTF of Ubuntu's
