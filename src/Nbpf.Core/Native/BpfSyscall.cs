@@ -46,6 +46,7 @@ internal static unsafe partial class BpfSyscall
         BpfMapType type, uint keySize, uint valueSize, uint maxEntries,
         uint flags = 0, string? name = null)
     {
+        MemlockLimit.EnsureRaised();
         int result = TryCreateMap(type, keySize, valueSize, maxEntries, flags, name);
         if (result < 0)
         {
@@ -141,6 +142,7 @@ internal static unsafe partial class BpfSyscall
     internal static BpfProgHandle LoadProgram(
         BpfProgType type, ReadOnlySpan<BpfInsn> insns, string license = "GPL", string? name = null)
     {
+        MemlockLimit.EnsureRaised();
         int result = TryLoadProgram(type, insns, license, name, out _, withLog: false);
         if (result < 0 && -result is EACCES or EINVAL)
         {
@@ -233,7 +235,7 @@ internal static unsafe partial class BpfSyscall
 
     private static BpfException TranslateError(int errno, string operation) => errno switch
     {
-        EPERM => new BpfPermissionException(operation, errno),
+        EPERM => new BpfPermissionException(operation, errno, MemlockLimit.EpermHint()),
         ENOTSUPP or EOPNOTSUPP => new BpfFeatureUnsupportedException(operation, errno),
         EEXIST => new BpfException($"{operation} failed with EEXIST (key already exists).", errno),
         _ => new BpfException($"{operation} failed with errno {errno}.", errno),

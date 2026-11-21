@@ -8,12 +8,18 @@ public class BpfException : Exception
     public BpfException(string message, int errno) : base(message) => Errno = errno;
 }
 
-/// <summary>EPERM — missing capabilities.</summary>
+/// <summary>EPERM — missing capabilities, or on pre-5.11 kernels an exhausted
+/// RLIMIT_MEMLOCK (see <see cref="MemlockLimit"/>), which the message then names.</summary>
 public sealed class BpfPermissionException : BpfException
 {
     public BpfPermissionException(string operation, int errno)
-        : base($"{operation} failed with EPERM. The process needs CAP_BPF and CAP_PERFMON " +
-               "(kernel 5.8+) or CAP_SYS_ADMIN. Try: sudo setcap cap_bpf,cap_perfmon,cap_net_admin+ep <binary>",
+        : this(operation, errno, detail: null) { }
+
+    public BpfPermissionException(string operation, int errno, string? detail)
+        : base(detail is null
+                   ? $"{operation} failed with EPERM. The process needs CAP_BPF and CAP_PERFMON " +
+                     "(kernel 5.8+) or CAP_SYS_ADMIN. Try: sudo setcap cap_bpf,cap_perfmon,cap_net_admin+ep <binary>"
+                   : $"{operation} failed with EPERM. {detail}",
                errno) { }
 }
 
