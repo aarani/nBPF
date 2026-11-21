@@ -32,9 +32,12 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      # Restore and save are separate steps so a freshly built kernel is cached right
+      # away. With actions/cache's combined form it is saved only if the whole job
+      # passes, so every failing test run would rebuild it.
       - name: Restore kernel
         id: kernel-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: artifacts/kernel
           key: qemu-kernel-${{ matrix.kernel }}-${{ hashFiles('eng/build-kernel.sh', 'eng/kernel/**') }}
@@ -45,6 +48,13 @@ jobs:
         env:
           KERNEL_FLAVOR: qemu
           KERNEL_VERSION: ${{ matrix.kernel }}
+
+      - name: Save kernel
+        if: steps.kernel-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: artifacts/kernel
+          key: ${{ steps.kernel-cache.outputs.cache-primary-key }}
 
       - name: Install QEMU and enable KVM
         run: |
