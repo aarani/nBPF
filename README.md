@@ -42,7 +42,7 @@ eng/container-runtime.sh  Picks Apple `container` (macOS) or docker for the abov
 eng/gen-fixtures.sh    Regenerates the checked-in test fixtures via clang
 eng/gen-kernel-btf.sh  Regenerates the minimized 5.4/6.8 kernel BTF fixtures
 eng/build-container-kernel.sh  Builds a BPF-capable arm64 kernel for Apple `container`
-eng/kernel/            Its base config (Apple's default kernel) and BPF fragment
+eng/kernel/            Its base config (Apple's default kernel) and BPF fragments
 ```
 
 `Nbpf.Btf` and `Nbpf.Elf` target netstandard2.0 rather than net10.0 on purpose.
@@ -155,8 +155,12 @@ Phase 2 (CO-RE) is in progress:
   lack it. Program types that need an attach target to load
   (`BPF_PROG_TYPE_TRACING`) can't be probed this way yet.
 
-Still to come in phase 2: the live half of the exit criterion (booting 5.4
-and 6.8 and loading there), and the remaining probes of
+- **Live 6.8** — the same Linux suite, including the CO-RE load against the
+  booted kernel's own BTF, passes on a 6.8.12 kernel under Apple `container`
+  (83 of 83, none skipped).
+
+Still to come in phase 2: the live 5.4 half of the exit criterion (booting
+5.4 and loading there), and the remaining probes of
 [DESIGN.md §4.5](DESIGN.md#45-feature-probes) that only matter once attachment
 and kernel BTF loading exist (`bpf_link`, TCX, `kprobe_multi`, BTF kinds,
 batch map ops). Extern resolution (kconfig, kfuncs) also remains from
@@ -224,18 +228,29 @@ gh run download "$run" -R aarani/nBPF -n container-kernel-6.18.64 -D artifacts/k
 CONTAINER_KERNEL=artifacts/kernel/vmlinux-6.18.64-nbpf eng/test-linux.sh
 ```
 
-That kernel is Apple's default kernel config (`eng/kernel/kata-6.18.15.config`)
+The same works with `container-kernel-6.8.12` and `vmlinux-6.8.12-nbpf`, the 6.8
+kernel phase 2's cross-kernel exit criterion boots.
+
+Each kernel is Apple's default kernel config (`eng/kernel/kata-6.18.15.config`)
 plus the BPF and tracing options in `eng/kernel/nbpf.config`, built from a pinned
-kernel.org tarball by `eng/build-container-kernel.sh`. Prebuilt distro kernels
+kernel.org tarball by `eng/build-container-kernel.sh`. Kernels before 6.10 also
+merge `eng/kernel/nbpf-pre-6.10.config`, which turns on module support: until
+then, `BPF_JIT` and `KPROBES` depend on it. Prebuilt distro kernels
 don't work here: they ship vsock, virtiofs and overlayfs as modules, and
 `container` boots without an initramfs. Building takes a few GB of RAM, so it
 runs in CI: the **Container kernel** workflow (`.github/workflows/container-kernel.yml`,
-native arm64 runner) builds it whenever those files change, or when run
-manually, and uploads it as the `container-kernel-<version>` workflow artifact
-downloaded above. Artifacts expire after 90 days; rerun the workflow from the
+native arm64 runner) builds every pinned version whenever those files change,
+or when run manually, and uploads each as a `container-kernel-<version>` workflow
+artifact, as downloaded above. A manual run can name just the versions it needs:
+
+```bash
+gh workflow run container-kernel.yml -R aarani/nBPF -f kernels='["6.8.12"]'
+```
+ Artifacts expire after 90 days; rerun the workflow from the
 Actions tab to get a fresh one. To build locally anyway, run
-`eng/build-container-kernel.sh` (output in `artifacts/kernel/`, git-ignored).
-After editing the fragment, `CONFIG_ONLY=1 eng/build-container-kernel.sh` checks
+`eng/build-container-kernel.sh` (`KERNEL_VERSION` picks the version; output in
+`artifacts/kernel/`, git-ignored). After editing a fragment,
+`CONFIG_ONLY=1 eng/build-container-kernel.sh` checks
 in about a minute, without compiling, that every option in it survives `make
 olddefconfig`.
 

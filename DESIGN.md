@@ -11,10 +11,11 @@ built: `.BTF.ext` parsing, the resolver, the instruction patcher, and vmlinux
 BTF loading, wired into `BpfObject.Load` and verified end to end in the
 container tests against a suite pinning libbpf's semantics. Its offline
 cross-kernel check is in place: relocations resolve correctly against real
-5.4 and 6.8 vmlinux BTF (see [§8.3](#83-co-re-portability-matrix-in-ci)). Still open in
-phase 2: the live half of the exit criterion (the same binary loading on booted
-5.4 and 6.8 kernels), the probes of §4.5 that wait on attachment, and the
-extern steps of §4.4. The feature probe module itself is built (§4.5).
+5.4 and 6.8 vmlinux BTF (see [§8.3](#83-co-re-portability-matrix-in-ci)). The live 6.8 half
+passes too: the Linux suite, including CO-RE against the booted kernel's own
+BTF, runs clean on 6.8.12 under Apple `container` (§8.4). Still open in phase 2:
+the live 5.4 half, the probes of §4.5 that wait on attachment, and the extern
+steps of §4.4. The feature probe module itself is built (§4.5).
 Everything past that is still design. See the README for what actually works today.
 **Target:** .NET 10+ (library), netstandard2.0 (generators), Linux 5.4+ (runtime).
 
@@ -673,9 +674,13 @@ boots per container (`container run -k`, wired through `CONTAINER_KERNEL` in
 `eng/container-runtime.sh`): Apple's default kernel config plus a checked-in
 BPF/tracing fragment, from a pinned kernel.org tarball, built by the *Container
 kernel* workflow on a native arm64 runner and uploaded as a workflow artifact. It is keyed by kernel
-version (a pinned sha256 and base config per version), so the 5.4 and 6.8 kernels
-for phase 2's live exit criterion are new table entries, though they will need
-their own base configs and probably an older toolchain. Prebuilt distro kernels
+version: a pinned sha256, a base config, and extra fragments per version. 6.18.64
+is the everyday kernel. 6.8.12, the live 6.8 half of phase 2's exit criterion,
+reuses the 6.18 base config plus `nbpf-pre-6.10.config`, which enables module
+support because `BPF_JIT` and `KPROBES` depend on it before 6.10. The whole suite
+passes on it. 5.4 is the open entry: it likely needs an older builder image
+(current gcc and pahole don't target it cleanly), and Apple's in-VM init may use
+syscalls that 5.4 lacks. Prebuilt distro kernels
 are not an option here: they build vsock, virtiofs and overlayfs as modules, and
 `container` boots without an initramfs.
 
@@ -720,7 +725,7 @@ use — **resist the temptation to start there.**
 |---|---|---|---|
 | **0** | Syscall layer, map CRUD, hand-assembled program, ringbuf | A hand-written instruction array loads and emits events | ✅ done |
 | **1** | ELF + BTF parse; map / global / subprog relocations | Real clang output for a tracepoint loads on the build kernel | ✅ done — `BpfObject.Load` passes the exit criterion in the container tests |
-| **2** | CO-RE field relos, vmlinux BTF, feature probes | Same binary runs on 5.4 and 6.8 unmodified | 🚧 in progress — CO-RE engine done and resolves correctly against real 5.4/6.8 BTF offline; feature probes and the probe_read fallback done; live 5.4/6.8 boot remains |
+| **2** | CO-RE field relos, vmlinux BTF, feature probes | Same binary runs on 5.4 and 6.8 unmodified | 🚧 in progress — CO-RE engine done and resolves correctly against real 5.4/6.8 BTF offline; feature probes and the probe_read fallback done; live 6.8 passes; live 5.4 remains |
 | **3** | Attachment breadth: XDP, TC/TCX, cgroup, fentry, netlink | XDP drop counter on a live NIC | — |
 | **4** | **P1** skeleton generator + MSBuild + templates | The [§3](#3-target-ux) snippet is the complete program | — |
 | **5** | **P4** design-time verifier analyzer | Verifier error appears as a squiggle on the right line of `.bpf.c` | — |
