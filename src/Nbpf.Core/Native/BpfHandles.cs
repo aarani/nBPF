@@ -16,6 +16,9 @@ public abstract partial class BpfFdHandle : SafeHandle
 
     protected override bool ReleaseHandle() => close((int)handle) == 0;
 
+    /// <summary>Closes an fd nothing wraps, e.g. a feature probe's throwaway object.</summary>
+    internal static void CloseFd(int fd) => close(fd);
+
     [LibraryImport("libc", SetLastError = true)]
     private static partial int close(int fd);
 }

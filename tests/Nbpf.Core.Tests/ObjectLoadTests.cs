@@ -11,7 +11,7 @@ namespace Nbpf.Core.Tests;
 /// </summary>
 public class ObjectLoadTests
 {
-    [LinuxFact]
+    [KernelFeatureFact(MapType = BpfMapType.RingBuf, ProgType = BpfProgType.Tracepoint)]
     public void Fixture_tracepoint_object_loads()
     {
         using var obj = BpfObject.Load(ObjectFixture.Bytes);
@@ -31,7 +31,7 @@ public class ObjectLoadTests
         Assert.All(obj.Maps.Values, m => Assert.False(m.Handle.IsInvalid));
     }
 
-    [LinuxFact]
+    [KernelFeatureFact(MapType = BpfMapType.RingBuf, ProgType = BpfProgType.Tracepoint)]
     public void Rodata_map_is_frozen_against_userspace_writes()
     {
         using var obj = BpfObject.Load(ObjectFixture.Bytes);
@@ -42,7 +42,7 @@ public class ObjectLoadTests
         Assert.Throws<BpfPermissionException>(() => rodata.Update(0u, 1000u));
     }
 
-    [LinuxFact]
+    [KernelFeatureFact(MapType = BpfMapType.RingBuf, ProgType = BpfProgType.Tracepoint)]
     public void Bss_map_reads_back_zero_initialized()
     {
         using var obj = BpfObject.Load(ObjectFixture.Bytes);
@@ -52,7 +52,7 @@ public class ObjectLoadTests
         Assert.Equal(0ul, bss[0u]);
     }
 
-    [LinuxFact]
+    [KernelFeatureFact(MapType = BpfMapType.RingBuf, ProgType = BpfProgType.Tracepoint)]
     public void Counts_map_round_trips_through_the_typed_view()
     {
         using var obj = BpfObject.Load(ObjectFixture.Bytes);

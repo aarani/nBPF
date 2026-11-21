@@ -13,8 +13,9 @@ container tests against a suite pinning libbpf's semantics. Its offline
 cross-kernel check is in place: relocations resolve correctly against real
 5.4 and 6.8 vmlinux BTF (see [§8.3](#83-co-re-portability-matrix-in-ci)). Still open in
 phase 2: the live half of the exit criterion (the same binary loading on booted
-5.4 and 6.8 kernels), feature probes, and the extern steps of §4.4. Everything past that is still
-design. See the README for what actually works today.
+5.4 and 6.8 kernels), the probes of §4.5 that wait on attachment, and the
+extern steps of §4.4. The feature probe module itself is built (§4.5).
+Everything past that is still design. See the README for what actually works today.
 **Target:** .NET 10+ (library), netstandard2.0 (generators), Linux 5.4+ (runtime).
 
 ---
@@ -263,6 +264,32 @@ a tiny load and checking `errno`, cached per-process:
 
 Every probe must have either a fallback path **or** a clear
 `"your kernel is too old for X, minimum is Y"` error. A probe with neither is a bug.
+
+**Built so far (phase 2):** `KernelFeatures.Running` (behind `IKernelFeatures`)
+answers three generic questions, which cover most of the list above as
+special cases:
+- **Map type.** Create the smallest valid map of that type.
+- **Program type.** Load `r0 = 0; exit` as that type.
+- **Helper, per program type.** Load `call N; exit` and read the verifier log.
+  The arguments are garbage, so the load usually fails; the helper is missing
+  only if the verifier refuses it by id ("invalid func", "unknown func", or
+  "program of this type cannot use helper", depending on kernel).
+
+EPERM is never read as "unsupported": a probe that can't run says so.
+
+- **Errors.** Map creation and program load consult the probes only after an
+  `EINVAL` or a verifier rejection. They turn it into
+  `BpfFeatureUnsupportedException` with the feature's name and the release that
+  introduced it, from a small catalog. CO-RE's poison call is excluded, so it
+  stays a verifier error.
+- **First fallback.** `bpf_probe_read_{kernel,user}[_str]` (5.5) are rewritten
+  to `bpf_probe_read[_str]` on kernels that lack them, as libbpf does. This is
+  what lets clang output written against current headers load on 5.4.
+- **Gaps.** Program types that need an attach target to load (`TRACING`, and
+  later `LSM`, `EXT`, `STRUCT_OPS`) can't be probed blind. `bpf_link`, TCX,
+  `kprobe_multi`, BTF kinds and batch ops wait on the attachment and BTF-loading
+  code that would use them; each lands with its consumer, so every probe ships
+  with its fallback or error.
 
 ### 4.6 Attachment
 
@@ -693,7 +720,7 @@ use — **resist the temptation to start there.**
 |---|---|---|---|
 | **0** | Syscall layer, map CRUD, hand-assembled program, ringbuf | A hand-written instruction array loads and emits events | ✅ done |
 | **1** | ELF + BTF parse; map / global / subprog relocations | Real clang output for a tracepoint loads on the build kernel | ✅ done — `BpfObject.Load` passes the exit criterion in the container tests |
-| **2** | CO-RE field relos, vmlinux BTF, feature probes | Same binary runs on 5.4 and 6.8 unmodified | 🚧 in progress — CO-RE engine done and resolves correctly against real 5.4/6.8 BTF offline; live 5.4/6.8 boot and feature probes remain |
+| **2** | CO-RE field relos, vmlinux BTF, feature probes | Same binary runs on 5.4 and 6.8 unmodified | 🚧 in progress — CO-RE engine done and resolves correctly against real 5.4/6.8 BTF offline; feature probes and the probe_read fallback done; live 5.4/6.8 boot remains |
 | **3** | Attachment breadth: XDP, TC/TCX, cgroup, fentry, netlink | XDP drop counter on a live NIC | — |
 | **4** | **P1** skeleton generator + MSBuild + templates | The [§3](#3-target-ux) snippet is the complete program | — |
 | **5** | **P4** design-time verifier analyzer | Verifier error appears as a squiggle on the right line of `.bpf.c` | — |

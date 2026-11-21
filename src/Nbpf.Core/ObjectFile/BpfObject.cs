@@ -47,8 +47,12 @@ public sealed class BpfObject : IDisposable
 
             var mapFds = maps.ToDictionary(m => m.Key, m => m.Value.Handle.Fd);
             string license = License(elf);
+            var features = options?.Features ?? KernelFeatures.Running;
             foreach (var linked in BpfLinker.Link(elf, mapFds))
             {
+                // Last step before the kernel sees it: swap helpers this kernel lacks
+                // for older equivalents (DESIGN §4.5).
+                HelperFallbacks.Apply(linked.Type, linked.Insns, features);
                 var handle = BpfSyscall.LoadProgram(
                     linked.Type, linked.Insns, license, KernelName(linked.Name));
                 programs.Add(linked.Name, new BpfProgram(handle, linked.Type));

@@ -29,7 +29,7 @@ public class CoreObjectLoadTests
         Assert.Contains("handle_exec", obj.Programs.Keys);
     }
 
-    [LinuxFact]
+    [KernelFeatureFact(ProgType = BpfProgType.Tracepoint)]
     public void A_core_object_loads_against_an_explicit_target_btf()
     {
         // The object's own BTF as the target: every relocation is an identity, so this
@@ -42,7 +42,7 @@ public class CoreObjectLoadTests
         Assert.Contains("handle_exec", obj.Programs.Keys);
     }
 
-    [LinuxTheory]
+    [KernelFeatureTheory(ProgType = BpfProgType.Tracepoint)]
     [InlineData("5.4.0-26-generic")]
     [InlineData("6.8.0-31-generic")]
     public void The_cross_kernel_object_relocates_for_another_kernel_and_passes_the_verifier(string release)
@@ -61,7 +61,7 @@ public class CoreObjectLoadTests
         Assert.Contains("handle_exec", obj.Programs.Keys);
     }
 
-    [LinuxFact]
+    [KernelFeatureFact(ProgType = BpfProgType.Tracepoint)]
     public void A_target_without_the_type_poisons_the_unguarded_access()
     {
         // The phase 1 sample's BTF has no task_struct. The exists-guarded tgid access

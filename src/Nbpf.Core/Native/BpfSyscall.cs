@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using Nbpf.Core.Insns;
+using Nbpf.Core.ObjectFile;
 
 namespace Nbpf.Core.Native;
 
@@ -45,6 +46,27 @@ internal static unsafe partial class BpfSyscall
         BpfMapType type, uint keySize, uint valueSize, uint maxEntries,
         uint flags = 0, string? name = null)
     {
+        int result = TryCreateMap(type, keySize, valueSize, maxEntries, flags, name);
+        if (result < 0)
+        {
+            int errno = -result;
+            // EINVAL is also what a kernel says about a map type it has never heard
+            // of; ask the probe so that case gets a "too old" error, not a bare errno.
+            if (errno == EINVAL && !KernelFeatures.Running.HasMapType(type))
+                throw KernelFeatureCatalog.Unsupported(type, errno);
+            throw TranslateError(errno, $"BPF_MAP_CREATE ({type})");
+        }
+
+        var handle = new BpfMapHandle();
+        handle.SetFd(result);
+        return handle;
+    }
+
+    /// <summary>BPF_MAP_CREATE without any error interpretation: the new fd, or the
+    /// negated errno. The feature probes build on this, so it must never probe.</summary>
+    internal static int TryCreateMap(
+        BpfMapType type, uint keySize, uint valueSize, uint maxEntries, uint flags, string? name)
+    {
         var attr = new MapCreateAttr
         {
             MapType = (uint)type,
@@ -54,14 +76,7 @@ internal static unsafe partial class BpfSyscall
             MapFlags = flags,
         };
         CopyName(name, attr.MapName);
-
-        int result = Invoke(BpfCmd.MapCreate, ref attr);
-        if (result < 0)
-            throw TranslateError(-result, $"BPF_MAP_CREATE ({type})");
-
-        var handle = new BpfMapHandle();
-        handle.SetFd(result);
-        return handle;
+        return Invoke(BpfCmd.MapCreate, ref attr);
     }
 
     internal static bool LookupElem(BpfMapHandle map, void* key, void* value)
@@ -126,12 +141,55 @@ internal static unsafe partial class BpfSyscall
     internal static BpfProgHandle LoadProgram(
         BpfProgType type, ReadOnlySpan<BpfInsn> insns, string license = "GPL", string? name = null)
     {
+        int result = TryLoadProgram(type, insns, license, name, out _, withLog: false);
+        if (result < 0 && -result is EACCES or EINVAL)
+        {
+            // Retry with the verifier log enabled so the exception can carry it.
+            result = TryLoadProgram(type, insns, license, name, out string log, withLog: true);
+            if (result < 0 && log.Length > 0)
+            {
+                // A helper this kernel lacks (or doesn't offer this program type) is a
+                // feature gap, not a program bug: say which, and since when.
+                if (KernelFeatureCatalog.RejectedHelper(log) is { } helper &&
+                    helper != CoreRelocator.PoisonCallImm &&
+                    KernelFeatures.CanProbe(type) &&
+                    !KernelFeatures.Running.HasHelper(type, helper))
+                    throw KernelFeatureCatalog.Unsupported(type, helper, -result);
+                throw new BpfVerifierException(log, -result);
+            }
+        }
+        if (result >= 0)
+        {
+            var handle = new BpfProgHandle();
+            handle.SetFd(result);
+            return handle;
+        }
+
+        int errno = -result;
+        if (errno == E2BIG)
+            throw new BpfProgramTooLargeException(insns.Length, errno);
+        // An unknown program type is rejected with EINVAL before the verifier runs,
+        // so there is no log; the probe tells it apart from other EINVALs.
+        if (errno == EINVAL && KernelFeatures.CanProbe(type) && !KernelFeatures.Running.HasProgramType(type))
+            throw KernelFeatureCatalog.Unsupported(type, errno);
+        throw TranslateError(errno, $"BPF_PROG_LOAD ({type})");
+    }
+
+    /// <summary>BPF_PROG_LOAD without any error interpretation: the new fd, or the
+    /// negated errno, plus the verifier log when <paramref name="withLog"/> is set
+    /// (empty otherwise). The feature probes build on this, so it must never probe.</summary>
+    internal static int TryLoadProgram(
+        BpfProgType type, ReadOnlySpan<BpfInsn> insns, string license, string? name,
+        out string log, bool withLog)
+    {
         Span<byte> licenseBytes = stackalloc byte[license.Length + 1];
         Encoding.ASCII.GetBytes(license, licenseBytes);
         licenseBytes[license.Length] = 0;
 
+        var logBuf = withLog ? new byte[256 * 1024] : [];
         fixed (BpfInsn* insnPtr = insns)
         fixed (byte* licensePtr = licenseBytes)
+        fixed (byte* logPtr = logBuf)
         {
             var attr = new ProgLoadAttr
             {
@@ -141,41 +199,17 @@ internal static unsafe partial class BpfSyscall
                 License = (ulong)licensePtr,
             };
             CopyName(name, attr.ProgName);
+            if (withLog)
+            {
+                attr.LogLevel = 1;
+                attr.LogSize = (uint)logBuf.Length;
+                attr.LogBuf = (ulong)logPtr;
+            }
 
             int result = Invoke(BpfCmd.ProgLoad, ref attr);
-            if (result >= 0)
-            {
-                var handle = new BpfProgHandle();
-                handle.SetFd(result);
-                return handle;
-            }
-
-            int errno = -result;
-            if (errno is EACCES or EINVAL)
-            {
-                // Retry with the verifier log enabled so the exception can carry it.
-                var logBuf = new byte[256 * 1024];
-                fixed (byte* logPtr = logBuf)
-                {
-                    attr.LogLevel = 1;
-                    attr.LogSize = (uint)logBuf.Length;
-                    attr.LogBuf = (ulong)logPtr;
-                    result = Invoke(BpfCmd.ProgLoad, ref attr);
-                    if (result >= 0)
-                    {
-                        var handle = new BpfProgHandle();
-                        handle.SetFd(result);
-                        return handle;
-                    }
-                    int nul = Array.IndexOf<byte>(logBuf, 0);
-                    string log = Encoding.ASCII.GetString(logBuf, 0, nul < 0 ? logBuf.Length : nul);
-                    if (log.Length > 0)
-                        throw new BpfVerifierException(log, -result);
-                }
-            }
-            if (errno == E2BIG)
-                throw new BpfProgramTooLargeException(insns.Length, errno);
-            throw TranslateError(errno, $"BPF_PROG_LOAD ({type})");
+            int nul = Array.IndexOf<byte>(logBuf, 0);
+            log = Encoding.ASCII.GetString(logBuf, 0, nul < 0 ? logBuf.Length : nul);
+            return result;
         }
     }
 

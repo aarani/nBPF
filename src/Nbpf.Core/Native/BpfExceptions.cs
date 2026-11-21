@@ -35,9 +35,32 @@ public sealed class BpfProgramTooLargeException : BpfException
                "(limit is 4096 pre-5.2, 1M after).", errno) { }
 }
 
-/// <summary>ENOTSUPP/EOPNOTSUPP/EINVAL — the kernel doesn't support a requested feature.</summary>
+/// <summary>
+/// The kernel doesn't support a requested feature: ENOTSUPP/EOPNOTSUPP, or an EINVAL
+/// that a feature probe traced to a missing map type, program type or helper
+/// (DESIGN §4.5), in which case <see cref="MinimumKernel"/> says where it arrived.
+/// </summary>
 public sealed class BpfFeatureUnsupportedException : BpfException
 {
+    /// <summary>What is missing, e.g. "BPF_MAP_TYPE_RINGBUF".</summary>
+    public string Feature { get; }
+
+    /// <summary>The upstream release that introduced the feature ("5.8"), when known.
+    /// A newer kernel can still lack it if its config leaves the feature out.</summary>
+    public string? MinimumKernel { get; }
+
     public BpfFeatureUnsupportedException(string feature, int errno)
-        : base($"The running kernel does not support {feature}.", errno) { }
+        : this(feature, minimumKernel: null, errno) { }
+
+    public BpfFeatureUnsupportedException(string feature, string? minimumKernel, int errno)
+        : base(minimumKernel is null
+                   ? $"The running kernel does not support {feature}."
+                   : $"The running kernel does not support {feature} (introduced in Linux " +
+                     $"{minimumKernel}; older kernels, and kernels built without the option " +
+                     "providing it, lack it).",
+               errno)
+    {
+        Feature = feature;
+        MinimumKernel = minimumKernel;
+    }
 }

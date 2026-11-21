@@ -41,7 +41,7 @@ public class RingBufTests
         Assert.Throws<ArgumentException>(() => BpfRingBuf<ulong>.Create(12345));
     }
 
-    [LinuxFact]
+    [KernelFeatureFact(MapType = BpfMapType.RingBuf)]
     public void Consume_delivers_an_emitted_event()
     {
         using var rb = BpfRingBuf<ulong>.Create(RingSize, name: "t_rb");
@@ -60,7 +60,7 @@ public class RingBufTests
         Assert.Equal(0x1234ABCDUL, received);
     }
 
-    [LinuxFact]
+    [KernelFeatureFact(MapType = BpfMapType.RingBuf)]
     public async Task ReadAllAsync_streams_events()
     {
         using var rb = BpfRingBuf<ulong>.Create(RingSize);
@@ -78,7 +78,7 @@ public class RingBufTests
         Assert.Equal([7UL, 7UL, 7UL], events);
     }
 
-    [LinuxFact]
+    [KernelFeatureFact(MapType = BpfMapType.RingBuf)]
     public void Records_survive_wraparound()
     {
         using var rb = BpfRingBuf<ulong>.Create(RingSize);
@@ -103,7 +103,7 @@ public class RingBufTests
         }
     }
 
-    [LinuxFact]
+    [KernelFeatureFact(MapType = BpfMapType.RingBuf)]
     public void Consume_exits_promptly_on_cancellation_with_empty_ring()
     {
         using var rb = BpfRingBuf<ulong>.Create(RingSize);

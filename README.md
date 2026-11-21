@@ -30,6 +30,7 @@ src/Nbpf.Core/        Core library: syscalls, program/map wrappers, ring buffer
   Maps/                  Map CRUD wrappers
   RingBuf/               Ring buffer consumer (mmap + epoll)
   ObjectFile/            .bpf.o loader: map planning, relocations, BpfObject
+  Features/              Kernel feature probes and the fallbacks built on them
 src/Nbpf.Btf/         BTF parser and type graph (netstandard2.0)
 src/Nbpf.Elf/         ELF64 reader for BPF objects (netstandard2.0)
 src/Shared/           Small source files linked into the netstandard2.0 projects
@@ -132,9 +133,34 @@ Phase 2 (CO-RE) is in progress:
   kernel to check that the side of the rename that kernel lacks is dead code
   to the verifier.
 
+- **Feature probes** (`Nbpf.Core.KernelFeatures`) — answers whether the running
+  kernel has a map type, a program type, or a helper for a given program type.
+  Each probe creates or loads something tiny, and answers are cached per
+  process. A helper counts as missing only when the verifier refuses it by
+  name; kernels have worded that three ways, and all three are recognized.
+  The probes feed two things:
+  - Clear errors. A map create or program load that fails because something
+    is missing throws `BpfFeatureUnsupportedException`, naming the feature and
+    the release that introduced it (e.g. `BPF_MAP_TYPE_RINGBUF`, 5.8), instead
+    of a bare `EINVAL`.
+  - The first fallback. Before 5.5, `bpf_probe_read_kernel`/`_user` and their
+    `_str` variants don't exist, so `BpfObject.Load` rewrites calls to them
+    into the older `bpf_probe_read`/`bpf_probe_read_str`, as libbpf does. When
+    neither exists it throws before loading.
+
+  `BpfLoadOptions.Features` swaps in another set of answers, which is how the
+  fallback is tested: the CO-RE sample loads through the real verifier while
+  the loader believes it is on a pre-5.5 kernel. The Linux tests also skip by
+  probed feature (`KernelFeatureFact`) rather than failing on kernels that
+  lack it. Program types that need an attach target to load
+  (`BPF_PROG_TYPE_TRACING`) can't be probed this way yet.
+
 Still to come in phase 2: the live half of the exit criterion (booting 5.4
-and 6.8 and loading there) and feature probes; extern resolution (kconfig,
-kfuncs) also remains from [DESIGN.md §4.4](DESIGN.md#44-relocations). Not yet started: attachment beyond
+and 6.8 and loading there), and the remaining probes of
+[DESIGN.md §4.5](DESIGN.md#45-feature-probes) that only matter once attachment
+and kernel BTF loading exist (`bpf_link`, TCX, `kprobe_multi`, BTF kinds,
+batch map ops). Extern resolution (kconfig, kfuncs) also remains from
+[DESIGN.md §4.4](DESIGN.md#44-relocations). Not yet started: attachment beyond
 test-run, and all of the source-generator and design-time tooling described in
 DESIGN.md. There is no BPF program compiler here — programs are either
 hand-assembled or loaded from an already-compiled object.
@@ -178,10 +204,10 @@ must have run). Elsewhere, including CI, it uses `docker run --privileged`. Set
 
 Apple's default kernel has `bpf(2)` but no `CONFIG_FTRACE`/`KPROBES` and no
 `CONFIG_DEBUG_INFO_BTF`, so tracepoint programs fail to load with `EINVAL` and
-`/sys/kernel/btf/vmlinux` is absent. Under it, the object-load tests
-(`ObjectLoadTests`, the `CoreObjectLoadTests` loads) fail and the two
-kernel-BTF tests skip, while maps, ring buffers and hand-assembled programs
-pass. CI's Ubuntu kernel runs the full suite.
+`/sys/kernel/btf/vmlinux` is absent. Under it, the tests that need tracepoint
+programs (the object loads, the probe_read fallback) and the two kernel-BTF
+tests skip with the reason, while maps, ring buffers and hand-assembled
+programs pass. CI's Ubuntu kernel runs the full suite.
 
 To run everything locally, boot a BPF-capable kernel instead (`container run
 -k`) by setting `CONTAINER_KERNEL`:
