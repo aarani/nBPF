@@ -9,7 +9,8 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
-mount -t devtmpfs devtmpfs /dev
+# The kernel may already have mounted devtmpfs (CONFIG_DEVTMPFS_MOUNT).
+grep -q '^devtmpfs /dev ' /proc/mounts || mount -t devtmpfs devtmpfs /dev
 mkdir -p /dev/pts /dev/shm
 mount -t devpts devpts /dev/pts
 mount -t tmpfs tmpfs /dev/shm
@@ -26,6 +27,25 @@ echo "nbpf guest: kernel $(uname -r)"
 export HOME=/tmp/home DOTNET_CLI_HOME=/tmp/home TMPDIR=/tmp
 export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
 mkdir -p "$HOME"
+
+# --- Bring-up diagnostics (temporary; remove once 5.4 runs green) -----------------
+# The first run failed with "Failed to create CoreCLR, HRESULT: 0x8007000E" and a
+# root write to /proc/sysrq-trigger being refused. Show what the guest really has,
+# then which .NET settings, if any, let the runtime start.
+echo "--- uid $(id -u); mounts:"
+cat /proc/mounts
+echo "--- memory:"
+grep -E '^(MemTotal|MemAvailable|CommitLimit|Committed_AS):' /proc/meminfo
+echo "overcommit_memory=$(cat /proc/sys/vm/overcommit_memory) max_map_count=$(cat /proc/sys/vm/max_map_count)"
+echo "--- limits:"
+ulimit -a
+ls -l /proc/sysrq-trigger
+for settings in "" DOTNET_EnableWriteXorExecute=0 DOTNET_GCHeapHardLimit=0x80000000 \
+        "DOTNET_EnableWriteXorExecute=0 DOTNET_GCHeapHardLimit=0x80000000"; do
+    out=$(env $settings dotnet msbuild -version 2>&1)
+    echo "--- probe [${settings:-defaults}] -> exit $?: $(echo "$out" | tail -n 1)"
+done
+# -----------------------------------------------------------------------------------
 
 sh "$state/cmd"
 echo $? > "$state/exit"
