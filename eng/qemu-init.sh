@@ -20,6 +20,12 @@ mount -t tmpfs tmpfs /run
 # The writable checkout, over the read-only copy the root share shows at that path.
 mount -t 9p -o trans=virtio,version=9p2000.L,msize=262144 nbpf "$NBPF_ROOT"
 
+# Mounts over 9p directories can silently vanish (see eng/qemu-test.sh); without
+# /proc nothing else works, so say so plainly instead of failing obscurely later.
+if [ ! -e /proc/self/mounts ] || [ ! -w "$NBPF_ROOT/artifacts" ]; then
+    echo "nbpf guest: error: the /proc or checkout mount did not stick" >&2
+fi
+
 state="$NBPF_ROOT/artifacts/qemu"
 echo "nbpf guest: kernel $(uname -r)"
 

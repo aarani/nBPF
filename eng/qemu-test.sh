@@ -48,8 +48,16 @@ fi
 
 # Kernel arguments the kernel doesn't recognize as its own become environment
 # variables of init, which is how the guest learns where the checkout is.
+#
+# The guest mounts /proc, /sys, /dev, tmpfs and the checkout over directories of the
+# 9p root, and those mounts must stick. So the root share uses 9p's default cache
+# mode: with cache=loose the client revalidates directory entries, and an entry that
+# fails revalidation is dropped together with whatever is mounted on it. And it
+# remaps inode numbers (multidevs=remap): host /proc, /sys, /dev and /run are other
+# filesystems inside the same export, whose colliding ids would otherwise make
+# entries look changed. The first 5.4 boot lost its /proc mount to exactly this.
 append="console=ttyS0 panic=-1 ro"
-append+=" root=/dev/root rootfstype=9p rootflags=trans=virtio,version=9p2000.L,msize=262144,cache=loose"
+append+=" root=/dev/root rootfstype=9p rootflags=trans=virtio,version=9p2000.L,msize=262144"
 append+=" init=$root/eng/qemu-init.sh NBPF_ROOT=$root"
 
 status=0
@@ -57,9 +65,9 @@ timeout "${QEMU_TIMEOUT:-1800}" qemu-system-x86_64 "${accel[@]}" \
     -m "${QEMU_MEMORY:-4G}" -smp "$(nproc)" \
     -nographic -no-reboot \
     -kernel "$kernel" -append "$append" \
-    -fsdev local,id=hostroot,path=/,security_model=none,readonly=on \
+    -fsdev local,id=hostroot,path=/,security_model=none,readonly=on,multidevs=remap \
     -device virtio-9p-pci,fsdev=hostroot,mount_tag=/dev/root \
-    -fsdev local,id=checkout,path="$root",security_model=none \
+    -fsdev local,id=checkout,path="$root",security_model=none,multidevs=remap \
     -device virtio-9p-pci,fsdev=checkout,mount_tag=nbpf \
     || status=$?
 
