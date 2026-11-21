@@ -36,6 +36,25 @@ internal static unsafe partial class Libc
     [LibraryImport("libc", SetLastError = true)]
     internal static partial int close(int fd);
 
+    /// <summary>RLIMIT_MEMLOCK (asm-generic/resource.h; the same on x86-64 and arm64).</summary>
+    internal const int RLIMIT_MEMLOCK = 8;
+
+    /// <summary>RLIM_INFINITY for 64-bit rlim_t.</summary>
+    internal const ulong RLIM_INFINITY = ulong.MaxValue;
+
+    /// <summary>struct rlimit with 64-bit rlim_t, as on every 64-bit Linux ABI.</summary>
+    internal struct RLimit
+    {
+        public ulong Current;
+        public ulong Maximum;
+    }
+
+    [LibraryImport("libc", SetLastError = true)]
+    internal static partial int getrlimit(int resource, out RLimit rlim);
+
+    [LibraryImport("libc", SetLastError = true)]
+    internal static partial int setrlimit(int resource, in RLimit rlim);
+
     internal static void* Mmap(nuint length, int prot, int fd, long offset)
     {
         void* p = mmap(null, length, prot, MAP_SHARED, fd, offset);

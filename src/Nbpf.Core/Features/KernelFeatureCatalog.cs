@@ -63,6 +63,7 @@ internal static partial class KernelFeatureCatalog
         [132] = ("bpf_ringbuf_submit", "5.8"),
         [133] = ("bpf_ringbuf_discard", "5.8"),
         [134] = ("bpf_ringbuf_query", "5.8"),
+        [160] = ("bpf_ktime_get_coarse_ns", "5.11"),
     };
 
     internal static string Describe(BpfMapType type) =>

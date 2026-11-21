@@ -171,6 +171,15 @@ Phase 2 (CO-RE) is complete. Its exit criterion, the same binary running on 5.4 
   The two kernels run on different architectures (6.8 arm64, 5.4 x86_64); the
   `.bpf.o` files are the same.
 
+Also built, from [DESIGN.md §9](DESIGN.md#9-deployment-and-privileges): the
+**RLIMIT_MEMLOCK bump** (`Nbpf.Core.MemlockLimit`). Before 5.11 the kernel charges
+BPF maps and programs against that limit, 64 KiB by default. So, like libbpf, the
+first map or program created raises it to unlimited, but only on kernels that
+still charge it: they're the ones without `bpf_ktime_get_coarse_ns`, which arrived
+with memcg accounting in 5.11. If the limit can't be raised, an `EPERM` says so
+instead of blaming capabilities. Set `MemlockLimit.AutoRaise = false` first to
+manage it yourself.
+
 Carried over from phase 2: the probes of
 [DESIGN.md §4.5](DESIGN.md#45-feature-probes) that only matter once attachment
 and kernel BTF loading exist (`bpf_link`, TCX, `kprobe_multi`, BTF kinds,

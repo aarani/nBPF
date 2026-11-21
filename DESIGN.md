@@ -709,9 +709,12 @@ once phase 3 builds them.
 - **Preflight capability check** with actionable messages. `CAP_BPF` + `CAP_PERFMON`
   (5.8+), `CAP_NET_ADMIN` for network attach; `CAP_SYS_ADMIN` on older kernels.
 - **Both memory-accounting regimes:** `RLIMIT_MEMLOCK` bumping pre-5.11, memcg after.
-  *Not built yet.* The 5.4 run (§8.4) passes only because its test maps fit in the
-  default 64 KiB memlock limit the guest had. A real program's maps on 5.4–5.10
-  would fail with `EPERM` until the loader raises the limit.
+  *Built* (`MemlockLimit`), the way libbpf does it. The first map or program
+  creation checks for `bpf_ktime_get_coarse_ns`, which arrived with memcg
+  accounting in 5.11. Only where it's missing is the limit raised to unlimited,
+  once per process, with `AutoRaise` as the opt-out. A failed raise turns the
+  resulting `EPERM` into a memlock-specific message. The live 5.4 run (§8.4)
+  checks it with an 8 MiB map against the guest's 64 KiB default.
 - **Split privilege model.** A small privileged loader pins programs and maps under
   `/sys/fs/bpf`, then the unprivileged C# service opens the pinned maps by path. Good
   security posture, and it makes rolling app restarts non-disruptive since the programs
