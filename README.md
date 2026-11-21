@@ -41,8 +41,10 @@ eng/test-linux.sh      Runs the Linux-only tests in a privileged container
 eng/container-runtime.sh  Picks Apple `container` (macOS) or docker for the above
 eng/gen-fixtures.sh    Regenerates the checked-in test fixtures via clang
 eng/gen-kernel-btf.sh  Regenerates the minimized 5.4/6.8 kernel BTF fixtures
-eng/build-kernel.sh  Builds a BPF-capable arm64 kernel for Apple `container`
-eng/kernel/            Its base config (Apple's default kernel) and BPF fragments
+eng/build-kernel.sh    Builds BPF-capable kernels: arm64 for Apple `container`, x86_64 for QEMU
+eng/kernel/            Their base config (Apple's default kernel) and config fragments
+eng/qemu-test.sh       Boots a kernel in QEMU and runs the Linux tests inside it (CI)
+eng/qemu-init.sh       The QEMU guest's init: mounts, runs the tests, powers off
 ```
 
 `Nbpf.Btf` and `Nbpf.Elf` target netstandard2.0 rather than net10.0 on purpose.
@@ -88,7 +90,8 @@ Phase 1 is complete:
   host; the end-to-end load — real clang output accepted by the verifier, the
   phase 1 exit criterion — runs in the container tests.
 
-Phase 2 (CO-RE) is in progress:
+Phase 2 (CO-RE) is complete. Its exit criterion, the same binary running on 5.4 and
+6.8 unmodified, holds on booted kernels:
 
 - **`.BTF.ext` parser** (`Nbpf.Btf.BtfExtReader`) — func info, line info, and
   CO-RE relocation records, grouped per ELF section, with strings resolved
@@ -159,12 +162,20 @@ Phase 2 (CO-RE) is in progress:
   booted kernel's own BTF, passes on a 6.8.12 kernel under Apple `container`
   (83 of 83, none skipped).
 
-Still to come in phase 2: the live 5.4 half of the exit criterion (booting
-5.4 and loading there), and the remaining probes of
+- **Live 5.4** — on a 5.4.302 kernel booted in QEMU in CI (the **Live
+  kernels** workflow), 75 tests pass and 8 skip, none fail. The skips are the
+  probes reporting no `BPF_MAP_TYPE_RINGBUF` (5.8): the ring buffer tests and
+  the phase 1 object loads, whose sample has a ring buffer map. Among the
+  passes is the CO-RE load against 5.4's own BTF, going through the
+  `bpf_probe_read_kernel` fallback on a kernel that really lacks the helper.
+  The two kernels run on different architectures (6.8 arm64, 5.4 x86_64); the
+  `.bpf.o` files are the same.
+
+Carried over from phase 2: the probes of
 [DESIGN.md §4.5](DESIGN.md#45-feature-probes) that only matter once attachment
 and kernel BTF loading exist (`bpf_link`, TCX, `kprobe_multi`, BTF kinds,
-batch map ops). Extern resolution (kconfig, kfuncs) also remains from
-[DESIGN.md §4.4](DESIGN.md#44-relocations). Not yet started: attachment beyond
+batch map ops), which land with that code. Extern resolution (kconfig, kfuncs)
+from [DESIGN.md §4.4](DESIGN.md#44-relocations) is also still open. Not yet started: attachment beyond
 test-run, and all of the source-generator and design-time tooling described in
 DESIGN.md. There is no BPF program compiler here — programs are either
 hand-assembled or loaded from an already-compiled object.
@@ -239,20 +250,44 @@ then, `BPF_JIT` and `KPROBES` depend on it. Prebuilt distro kernels
 don't work here: they ship vsock, virtiofs and overlayfs as modules, and
 `container` boots without an initramfs. Building takes a few GB of RAM, so it
 runs in CI: the **Container kernel** workflow (`.github/workflows/container-kernel.yml`,
-native arm64 runner) builds every pinned version whenever those files change,
-or when run manually, and uploads each as a `container-kernel-<version>` workflow
-artifact, as downloaded above. A manual run can name just the versions it needs:
+native arm64 runner) builds every pinned version on pushes to `main` that change
+those files, or when run manually, and uploads each as a
+`container-kernel-<version>` workflow artifact, as downloaded above. It doesn't run
+on PRs: GitHub matches PR path filters against the whole PR, so every push would
+rebuild every kernel. A manual run can name just the versions it needs:
 
 ```bash
 gh workflow run container-kernel.yml -R aarani/nBPF -f kernels='["6.8.12"]'
 ```
- Artifacts expire after 90 days; rerun the workflow from the
-Actions tab to get a fresh one. To build locally anyway, run
-`eng/build-kernel.sh` (`KERNEL_VERSION` picks the version; output in
-`artifacts/kernel/`, git-ignored). After editing a fragment,
-`CONFIG_ONLY=1 eng/build-kernel.sh` checks
-in about a minute, without compiling, that every option in it survives `make
-olddefconfig`.
+
+Artifacts expire after 90 days; rerun the workflow from the Actions tab to get a
+fresh one. To build locally anyway, run `eng/build-kernel.sh` (`KERNEL_VERSION`
+picks the version; output in `artifacts/kernel/`, git-ignored). After editing a
+fragment, `CONFIG_ONLY=1 eng/build-kernel.sh` checks in about a minute, without
+compiling, that every option in it survives `make olddefconfig`.
+
+### Older kernels, in QEMU (CI)
+
+Apple's `container` can't run processes on kernels before 5.6: its in-VM agent
+fails with `ENOSYS`, most likely on `openat2`. So the **Live kernels** workflow
+(`.github/workflows/live-kernels.yml`) runs the Linux suite on those in QEMU/KVM
+on a GitHub runner, on every push to `main` and every PR. It currently covers
+5.4.302. Each kernel comes from `KERNEL_FLAVOR=qemu eng/build-kernel.sh`: an
+x86_64 bzImage from the kernel's own defconfig and KVM guest config, plus
+`eng/kernel/qemu-x86.config` and the same BPF fragments. 5.4 builds in a Debian
+bullseye container (gcc 10, pahole 1.20) and fetches bullseye from
+`archive.debian.org`, now that its security updates are gone from the regular
+mirrors. The kernel is cached on the build script and fragments, so it's only
+rebuilt when they change.
+
+`eng/qemu-test.sh <bzImage>` boots it with no disk image. The guest's root
+filesystem is the runner's own, shared read-only over 9p, so the same .NET SDK
+and paths are there. The checkout is shared writable at its own path.
+`eng/qemu-init.sh`, the guest's init, mounts `/proc`, `/sys`, `/dev` and tmpfs,
+brings up loopback (`dotnet test` talks to its test host over localhost), runs
+the prebuilt tests with `--no-build`, and powers off. The output is written to
+`artifacts/qemu/output.log`, which the script prints, and the test exit code
+becomes the script's.
 
 Extra arguments are forwarded to `dotnet test`, e.g.:
 
