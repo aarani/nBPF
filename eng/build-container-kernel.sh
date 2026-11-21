@@ -8,8 +8,11 @@
 #                                          (it boots: virtio, vsock, virtiofs built in,
 #                                          no modules, no initramfs needed)
 #          + eng/kernel/nbpf.config        the BPF/tracing options on top
+#          + eng/kernel/nbpf-pre-6.10.config  for kernels before 6.10 only:
+#                                          module support, which BPF_JIT and
+#                                          KPROBES depend on there
 #
-# Every option in the fragment is checked against the final .config, so an option
+# Every option in the fragments is checked against the final .config, so an option
 # that `make olddefconfig` drops for an unmet dependency fails the build instead of
 # producing a kernel that quietly lacks it.
 #
@@ -44,6 +47,7 @@ kernel_version="${KERNEL_VERSION:-6.18.64}"
 # sha256sums.asc) and the base config it starts from. Older kernels (5.4, 6.8 for
 # phase 2's cross-kernel run) need their own base config and possibly an older
 # builder image, since current gcc/pahole may not build them.
+extra_fragments=""  # space-separated, merged after nbpf.config
 case "$kernel_version" in
     6.18.64)
         tarball_sha256=020d45510c539972e6f14c5c71566878d3b7ef56fb082b3e09134f2ebaade562
@@ -55,6 +59,7 @@ case "$kernel_version" in
         # catches anything BPF-related that drops with it.
         tarball_sha256=19b31956d229b5b9ca5671fa1c74320179682a3d8d00fc86794114b21da86039
         base_config=kata-6.18.15.config
+        extra_fragments=nbpf-pre-6.10.config
         ;;
     *)
         echo "error: no pinned sha256/base config for kernel $kernel_version; add it to $0" >&2
@@ -79,6 +84,7 @@ fi
 
 exec "$CONTAINER_RUNTIME" run --rm -i ${resources[@]+"${resources[@]}"} "${mounts[@]}" \
     -e KV="$kernel_version" -e SHA="$tarball_sha256" -e BASE="$base_config" \
+    -e EXTRA_FRAGMENTS="$extra_fragments" \
     -e CONFIG_ONLY="${CONFIG_ONLY:-}" \
     debian:trixie-slim bash -s <<'EOF'
 set -euo pipefail
@@ -106,8 +112,9 @@ if [ -d /cache ] && [ ! -f "/cache/$tarball" ]; then cp "$tarball" /cache/; fi
 tar -xJf "$tarball"
 cd "linux-$KV"
 
-fragment=/src/eng/kernel/nbpf.config
-scripts/kconfig/merge_config.sh -m "/src/eng/kernel/$BASE" "$fragment" >/dev/null
+fragments=(/src/eng/kernel/nbpf.config)
+for extra in $EXTRA_FRAGMENTS; do fragments+=("/src/eng/kernel/$extra"); done
+scripts/kconfig/merge_config.sh -m "/src/eng/kernel/$BASE" "${fragments[@]}" >/dev/null
 make -s olddefconfig
 
 missing=0
@@ -117,7 +124,7 @@ while IFS= read -r line; do
         echo "error: $line did not survive olddefconfig; final .config has: $(grep -E "^(# )?$name[= ]" .config || echo '(absent)')" >&2
         missing=1
     fi
-done < <(grep -E '^CONFIG_' "$fragment")
+done < <(grep -hE '^CONFIG_' "${fragments[@]}")
 [ "$missing" = 0 ] || exit 1
 
 suffix="$KV-nbpf"
