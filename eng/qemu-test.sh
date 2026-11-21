@@ -24,7 +24,7 @@ kernel="$(cd "$(dirname "$kernel")" && pwd)/$(basename "$kernel")"
 
 state="$root/artifacts/qemu"
 mkdir -p "$state"
-rm -f "$state/exit"
+rm -f "$state/exit" "$state/output.log"
 
 # What the guest runs, and the environment it runs with: the host's PATH and
 # DOTNET_ROOT, so the same SDK is found through the shared root filesystem.
@@ -70,6 +70,13 @@ timeout "${QEMU_TIMEOUT:-1800}" qemu-system-x86_64 "${accel[@]}" \
     -fsdev local,id=checkout,path="$root",security_model=none,multidevs=remap \
     -device virtio-9p-pci,fsdev=checkout,mount_tag=nbpf \
     || status=$?
+
+# The complete test output, as the guest wrote it; the console copy above may be cut
+# short.
+if [ -f "$state/output.log" ]; then
+    echo "=== test output from the guest ($state/output.log) ==="
+    cat "$state/output.log"
+fi
 
 if [ ! -f "$state/exit" ]; then
     echo "error: the guest never reported an exit code (QEMU exited with $status)" >&2

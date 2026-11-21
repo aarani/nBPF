@@ -39,11 +39,15 @@ export HOME=/tmp/home DOTNET_CLI_HOME=/tmp/home TMPDIR=/tmp
 export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
 mkdir -p "$HOME"
 
-sh "$state/cmd"
-echo $? > "$state/exit"
+# The output also goes to a file in the checkout, which eng/qemu-test.sh prints after
+# QEMU exits. The serial console alone isn't enough: it drains slowly, and output
+# still buffered when the VM powers off is lost. That's how a passing 5.4 run once
+# showed nothing past dotnet test's first line.
+{ sh "$state/cmd"; echo $? > "$state/exit"; } 2>&1 | tee "$state/output.log"
 sync
 
-# Power off; if sysrq is unavailable, exiting PID 1 panics the kernel, and with
-# panic=-1 and QEMU's -no-reboot that ends the VM too.
+# Let the console drain, then power off; if sysrq is unavailable, exiting PID 1
+# panics the kernel, and with panic=-1 and QEMU's -no-reboot that ends the VM too.
+sleep 2
 echo o > /proc/sysrq-trigger
 sleep 10
