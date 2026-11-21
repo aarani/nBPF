@@ -9,9 +9,11 @@ global-data / subprogram relocations of [§4.4](#44-relocations) exist, so a
 real clang tracepoint object loads end to end. Phase 2's CO-RE engine is
 built: `.BTF.ext` parsing, the resolver, the instruction patcher, and vmlinux
 BTF loading, wired into `BpfObject.Load` and verified end to end in the
-container tests against a suite pinning libbpf's semantics. Still open in
-phase 2: the cross-kernel matrix that proves the exit criterion (5.4 and 6.8),
-feature probes, and the extern steps of §4.4. Everything past that is still
+container tests against a suite pinning libbpf's semantics. Its offline
+cross-kernel check is in place: relocations resolve correctly against real
+5.4 and 6.8 vmlinux BTF (see [§8.3](#83-co-re-portability-matrix-in-ci)). Still open in
+phase 2: the live half of the exit criterion (the same binary loading on booted
+5.4 and 6.8 kernels), feature probes, and the extern steps of §4.4. Everything past that is still
 design. See the README for what actually works today.
 **Target:** .NET 10+ (library), netstandard2.0 (generators), Linux 5.4+ (runtime).
 
@@ -620,11 +622,35 @@ You catch "this breaks on RHEL 8" at build time, on a GitHub runner, without boo
 single VM. Nothing else in the ecosystem makes this as easy as it could be here — lean
 on it hard.
 
+**Built so far (phase 2):** two kernels, Ubuntu 5.4.0-26 (BTFHub) and 6.8.0-31
+(BTF cut from Ubuntu's own kernel package), resolved against
+`core-kernels.bpf.c` in `Nbpf.Btf.Tests`. Rather than committing megabytes per
+kernel, `eng/gen-kernel-btf.sh` minimizes each blob with `bpftool gen
+min_core_btf` to just the types and members the object touches, a few hundred
+bytes each. That minimization runs libbpf's own candidate matching, so it doubles as
+a libbpf cross-check: on 5.4.0-26 it surfaced two identical `task_struct`
+definitions (a pahole dedup leftover) that make `TYPE_ID_TARGET` on
+`task_struct` genuinely ambiguous. Every field relocation still agrees across
+both copies. Growing this to the ~40-kernel matrix means more pinned sources in
+that script, plus probably a fixture per feature area instead of one object.
+
 ### 8.4 Live-kernel integration tests
 
 A matrix of VMs (5.4, 5.10, 5.15, 6.1, 6.8) for the attach paths that
 `PROG_TEST_RUN` cannot cover — XDP on a real NIC, tc/clsact, cgroup.
 Slower and separate from the main CI loop.
+
+**Built so far:** the kernel side of the local VM route.
+`eng/build-container-kernel.sh` builds an arm64 kernel that Apple's `container`
+boots per container (`container run -k`, wired through `CONTAINER_KERNEL` in
+`eng/container-runtime.sh`): Apple's default kernel config plus a checked-in
+BPF/tracing fragment, from a pinned kernel.org tarball, built by the *Container
+kernel* workflow on a native arm64 runner and uploaded as a workflow artifact. It is keyed by kernel
+version (a pinned sha256 and base config per version), so the 5.4 and 6.8 kernels
+for phase 2's live exit criterion are new table entries, though they will need
+their own base configs and probably an older toolchain. Prebuilt distro kernels
+are not an option here: they build vsock, virtiofs and overlayfs as modules, and
+`container` boots without an initramfs.
 
 ---
 
@@ -667,7 +693,7 @@ use — **resist the temptation to start there.**
 |---|---|---|---|
 | **0** | Syscall layer, map CRUD, hand-assembled program, ringbuf | A hand-written instruction array loads and emits events | ✅ done |
 | **1** | ELF + BTF parse; map / global / subprog relocations | Real clang output for a tracepoint loads on the build kernel | ✅ done — `BpfObject.Load` passes the exit criterion in the container tests |
-| **2** | CO-RE field relos, vmlinux BTF, feature probes | Same binary runs on 5.4 and 6.8 unmodified | 🚧 in progress — `.BTF.ext` parser done |
+| **2** | CO-RE field relos, vmlinux BTF, feature probes | Same binary runs on 5.4 and 6.8 unmodified | 🚧 in progress — CO-RE engine done and resolves correctly against real 5.4/6.8 BTF offline; live 5.4/6.8 boot and feature probes remain |
 | **3** | Attachment breadth: XDP, TC/TCX, cgroup, fentry, netlink | XDP drop counter on a live NIC | — |
 | **4** | **P1** skeleton generator + MSBuild + templates | The [§3](#3-target-ux) snippet is the complete program | — |
 | **5** | **P4** design-time verifier analyzer | Verifier error appears as a squiggle on the right line of `.bpf.c` | — |

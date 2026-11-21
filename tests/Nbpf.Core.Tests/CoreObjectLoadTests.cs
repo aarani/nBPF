@@ -9,9 +9,10 @@ namespace Nbpf.Core.Tests;
 /// <summary>
 /// The phase 2 exit path end to end: a clang object carrying CO-RE relocations (see
 /// tests/Nbpf.Elf.Tests/Fixtures/core-sample.bpf.c) relocates and loads. The
-/// cross-kernel half of the exit criterion — same binary on 5.4 and 6.8 — lives in the
-/// container matrix, not here; these prove the engine against whatever kernel runs the
-/// tests.
+/// cross-kernel half of the exit criterion — same binary on 5.4 and 6.8 — is checked
+/// offline in Nbpf.Btf.Tests' CoreReloCrossKernelTests and still needs booted 5.4/6.8
+/// kernels for the live half; these prove the engine against whatever kernel runs
+/// the tests.
 /// </summary>
 public class CoreObjectLoadTests
 {
@@ -37,6 +38,25 @@ public class CoreObjectLoadTests
         var ownBtf = BtfReader.Read(elf.FindSection(".BTF")!.Data);
 
         using var obj = BpfObject.Load(Bytes, new BpfLoadOptions { TargetBtf = ownBtf });
+
+        Assert.Contains("handle_exec", obj.Programs.Keys);
+    }
+
+    [LinuxTheory]
+    [InlineData("5.4.0-26-generic")]
+    [InlineData("6.8.0-31-generic")]
+    public void The_cross_kernel_object_relocates_for_another_kernel_and_passes_the_verifier(string release)
+    {
+        // Relocated for a kernel other than the one running the tests: the offsets are
+        // wrong for *this* kernel, but bpf_probe_read_kernel tolerates any address, so
+        // the verifier only judges control flow — and each target poisons the side of
+        // the state/__state rename it lacks, which must be dead code for the load to
+        // succeed. See core-kernels.bpf.c and Nbpf.Btf.Tests' CoreReloCrossKernelTests.
+        var bytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "core-kernels.bpf.o"));
+        var target = BtfReader.Read(File.ReadAllBytes(
+            Path.Combine(AppContext.BaseDirectory, "Fixtures", $"vmlinux-{release}.min.btf")));
+
+        using var obj = BpfObject.Load(bytes, new BpfLoadOptions { TargetBtf = target });
 
         Assert.Contains("handle_exec", obj.Programs.Keys);
     }

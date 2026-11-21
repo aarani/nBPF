@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
-# Runs the test suite inside a privileged Linux container.
-# bpf(2) needs CAP_BPF/CAP_SYS_ADMIN, hence --privileged.
+# Runs the test suite inside a Linux container with the privileges bpf(2) needs
+# (CAP_BPF/CAP_SYS_ADMIN). Uses Apple's `container` on macOS when installed, docker
+# otherwise — see eng/container-runtime.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source eng/container-runtime.sh
 
-exec docker run --rm --privileged \
+# A named volume keeps the NuGet cache across runs.
+if [ "$CONTAINER_RUNTIME" = container ]; then
+    container volume inspect nbpf-nuget >/dev/null 2>&1 || container volume create nbpf-nuget >/dev/null
+fi
+
+exec "$CONTAINER_RUNTIME" run --rm "${BPF_PRIVILEGE[@]}" \
   -v "$PWD":/src -w /src \
   -v nbpf-nuget:/root/.nuget/packages \
   -e DOTNET_CLI_TELEMETRY_OPTOUT=1 \

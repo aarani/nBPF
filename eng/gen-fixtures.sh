@@ -11,6 +11,13 @@
 #   tests/Nbpf.Elf.Tests/Fixtures/core-sample.bpf.o   object carrying CO-RE relocations
 #   tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf     .BTF of the CO-RE sample
 #   tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf.ext .BTF.ext of the CO-RE sample
+#   tests/Nbpf.Elf.Tests/Fixtures/core-kernels.bpf.o   CO-RE object for the cross-kernel tests
+#   tests/Nbpf.Btf.Tests/Fixtures/core-kernels.btf     .BTF of the cross-kernel object
+#   tests/Nbpf.Btf.Tests/Fixtures/core-kernels.btf.ext .BTF.ext of the cross-kernel object
+#
+# The minimized 5.4/6.8 kernel BTF those cross-kernel tests resolve against is derived
+# from core-kernels.bpf.o, so after changing core-kernels.bpf.c also rerun
+# eng/gen-kernel-btf.sh.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -61,12 +68,22 @@ compile "$core_src" "$root/tests/Nbpf.Elf.Tests/Fixtures/core-sample.bpf.o"
            --dump-section .BTF.ext="$root/tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf.ext" \
            "$root/tests/Nbpf.Elf.Tests/Fixtures/core-sample.bpf.o"
 
+# The cross-kernel fixture: relocations whose answers differ between 5.4 and 6.8.
+kernels_src="$root/tests/Nbpf.Elf.Tests/Fixtures/core-kernels.bpf.c"
+compile "$kernels_src" "$root/tests/Nbpf.Elf.Tests/Fixtures/core-kernels.bpf.o"
+"$objcopy" --dump-section .BTF="$root/tests/Nbpf.Btf.Tests/Fixtures/core-kernels.btf" \
+           --dump-section .BTF.ext="$root/tests/Nbpf.Btf.Tests/Fixtures/core-kernels.btf.ext" \
+           "$root/tests/Nbpf.Elf.Tests/Fixtures/core-kernels.bpf.o"
+
 for f in "$root/tests/Nbpf.Btf.Tests/Fixtures/sample.btf" \
          "$root/tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf" \
          "$root/tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf.ext" \
          "$root/tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o" \
          "$root/tests/Nbpf.Elf.Tests/Fixtures/core-sample.bpf.o" \
          "$root/tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf" \
-         "$root/tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf.ext"; do
+         "$root/tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf.ext" \
+         "$root/tests/Nbpf.Elf.Tests/Fixtures/core-kernels.bpf.o" \
+         "$root/tests/Nbpf.Btf.Tests/Fixtures/core-kernels.btf" \
+         "$root/tests/Nbpf.Btf.Tests/Fixtures/core-kernels.btf.ext"; do
     echo "wrote ${f#"$root/"} ($(wc -c < "$f" | tr -d ' ') bytes)"
 done

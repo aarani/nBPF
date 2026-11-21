@@ -21,5 +21,10 @@
           Link="Fixtures/sample.bpf.o" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Nbpf.Elf.Tests/Fixtures/core-sample.bpf.o"
           Link="Fixtures/core-sample.bpf.o" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Nbpf.Elf.Tests/Fixtures/core-kernels.bpf.o"
+          Link="Fixtures/core-kernels.bpf.o" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Minimized 5.4/6.8 vmlinux BTF (eng/gen-kernel-btf.sh), shared with Nbpf.Btf.Tests. -->
+    <None Include="../Nbpf.Btf.Tests/Fixtures/vmlinux-*.min.btf"
+          LinkBase="Fixtures" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

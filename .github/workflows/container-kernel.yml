@@ -1,0 +1,44 @@
+name: Container kernel
+
+# Builds the arm64 kernel Apple's `container` boots for local Linux test runs on
+# macOS (eng/build-container-kernel.sh), on a native arm64 runner so nobody has to
+# compile a kernel on a laptop. The result is uploaded as the
+# container-kernel-<version> workflow artifact (kept 90 days; rerun the workflow
+# manually to get a fresh one).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - eng/build-container-kernel.sh
+      - eng/kernel/**
+      - .github/workflows/container-kernel.yml
+  pull_request:
+    paths:
+      - eng/build-container-kernel.sh
+      - eng/kernel/**
+      - .github/workflows/container-kernel.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build kernel
+        run: ./eng/build-container-kernel.sh
+      - name: Read kernel version
+        id: kernel
+        run: |
+          image=$(ls artifacts/kernel/vmlinux-*-nbpf)
+          version=${image#artifacts/kernel/vmlinux-}
+          echo "version=${version%-nbpf}" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: container-kernel-${{ steps.kernel.outputs.version }}
+          path: artifacts/kernel/
+          retention-days: 90
