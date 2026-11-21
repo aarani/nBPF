@@ -104,19 +104,29 @@ if [ "$(uname -m)" != aarch64 ]; then
     exit 1
 fi
 
-if ! apt-get update -qq >/dev/null 2>&1; then
-    # Releases past their support window move from deb.debian.org and
-    # security.debian.org to archive.debian.org; point at it and retry.
-    echo "apt mirrors failed; retrying via archive.debian.org" >&2
-    sed -i -e 's|deb.debian.org|archive.debian.org|g' \
-           -e 's|security.debian.org|archive.debian.org|g' \
-           /etc/apt/sources.list $(ls /etc/apt/sources.list.d/* 2>/dev/null || true)
-    apt-get update -qq >/dev/null
-fi
 # dwarves = pahole, which DEBUG_INFO_BTF needs both at configure and link time.
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-    bc bison build-essential ca-certificates cpio curl dwarves flex kmod libelf-dev \
-    libssl-dev python3 xz-utils >/dev/null
+install_toolchain() {
+    apt-get update -qq >/dev/null &&
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+        bc bison build-essential ca-certificates cpio curl dwarves flex kmod libelf-dev \
+        libssl-dev python3 xz-utils >/dev/null
+}
+if ! install_toolchain; then
+    # Old builder images (bullseye for 5.4) outlive their release's support. Its
+    # security suite goes first: deb.debian.org kept listing bullseye-security
+    # updates after their files were gone (404). A throwaway builder doesn't need
+    # security updates, so drop that suite and install the point-release packages.
+    # Only the one-line sources.list format is edited; deb822 images (trixie and
+    # later) are current and never get here.
+    echo "apt install failed; retrying without the security suite" >&2
+    sed -i '/security/d' /etc/apt/sources.list
+    if ! install_toolchain; then
+        # Then the release itself leaves the regular mirrors for archive.debian.org.
+        echo "apt install failed again; retrying via archive.debian.org" >&2
+        sed -i 's|deb.debian.org|archive.debian.org|g' /etc/apt/sources.list
+        install_toolchain
+    fi
+fi
 
 tarball="linux-$KV.tar.xz"
 mkdir -p /build && cd /build
