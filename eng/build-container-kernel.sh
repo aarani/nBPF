@@ -112,20 +112,20 @@ install_toolchain() {
         libssl-dev python3 xz-utils >/dev/null
 }
 if ! install_toolchain; then
-    # Old builder images (bullseye for 5.4) outlive their release's support. Its
-    # security suite goes first: deb.debian.org kept listing bullseye-security
-    # updates after their files were gone (404). A throwaway builder doesn't need
-    # security updates, so drop that suite and install the point-release packages.
-    # Only the one-line sources.list format is edited; deb822 images (trixie and
-    # later) are current and never get here.
-    echo "apt install failed; retrying without the security suite" >&2
-    sed -i '/security/d' /etc/apt/sources.list
-    if ! install_toolchain; then
-        # Then the release itself leaves the regular mirrors for archive.debian.org.
-        echo "apt install failed again; retrying via archive.debian.org" >&2
-        sed -i 's|deb.debian.org|archive.debian.org|g' /etc/apt/sources.list
-        install_toolchain
-    fi
+    # Old builder images (bullseye for 5.4) outlive their release's support, and
+    # the release moves to archive.debian.org. In between, deb.debian.org kept
+    # listing bullseye-security updates whose files were already gone (404). The
+    # security suite can't simply be dropped: the image itself ships packages from
+    # it, so the point-release -dev packages that must match them exactly wouldn't
+    # install. So point every source, security included, at the archive. Its Release
+    # files are past their Valid-Until, so don't check that. Only the one-line
+    # sources.list format is edited; deb822 images (trixie and later) are current
+    # and never get here.
+    echo "apt install failed; retrying via archive.debian.org" >&2
+    sed -i -e 's|deb.debian.org|archive.debian.org|g' \
+           -e 's|security.debian.org|archive.debian.org|g' /etc/apt/sources.list
+    echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99archive
+    install_toolchain
 fi
 
 tarball="linux-$KV.tar.xz"
