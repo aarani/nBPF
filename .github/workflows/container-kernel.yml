@@ -1,7 +1,7 @@
 name: Container kernel
 
 # Builds the arm64 kernels Apple's `container` boots for local Linux test runs on
-# macOS (eng/build-container-kernel.sh), on a native arm64 runner so nobody has to
+# macOS (eng/build-kernel.sh), on a native arm64 runner so nobody has to
 # compile a kernel on a laptop. One job per kernel: the current one for everyday
 # runs, plus the versions phase 2's cross-kernel exit criterion boots. Each result
 # is uploaded as the container-kernel-<version> workflow artifact (kept 90 days;
@@ -19,12 +19,12 @@ on:
   push:
     branches: [main]
     paths:
-      - eng/build-container-kernel.sh
+      - eng/build-kernel.sh
       - eng/kernel/**
       - .github/workflows/container-kernel.yml
   pull_request:
     paths:
-      - eng/build-container-kernel.sh
+      - eng/build-kernel.sh
       - eng/kernel/**
       - .github/workflows/container-kernel.yml
 
@@ -39,14 +39,16 @@ jobs:
     strategy:
       fail-fast: false # one kernel failing to build says nothing about the others
       matrix:
-        # Each needs a pinned sha256 and base config in eng/build-container-kernel.sh.
+        # Each needs a pinned sha256 in eng/build-kernel.sh. 5.4 is not here: it
+        # builds for Apple's container but can't run processes there, so its live
+        # run is in live-kernels.yml (QEMU) instead.
         # Pushes and PRs build all of them, since the script and fragments they touch
         # are shared; a manual run can name just the ones it needs.
-        kernel: ${{ fromJSON(inputs.kernels || '["6.18.64", "6.8.12", "5.4.302"]') }}
+        kernel: ${{ fromJSON(inputs.kernels || '["6.18.64", "6.8.12"]') }}
     steps:
       - uses: actions/checkout@v4
       - name: Build kernel
-        run: ./eng/build-container-kernel.sh
+        run: ./eng/build-kernel.sh
         env:
           KERNEL_VERSION: ${{ matrix.kernel }}
       - uses: actions/upload-artifact@v4

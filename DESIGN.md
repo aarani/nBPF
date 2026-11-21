@@ -669,7 +669,7 @@ A matrix of VMs (5.4, 5.10, 5.15, 6.1, 6.8) for the attach paths that
 Slower and separate from the main CI loop.
 
 **Built so far:** the kernel side of the local VM route.
-`eng/build-container-kernel.sh` builds an arm64 kernel that Apple's `container`
+`eng/build-kernel.sh` builds an arm64 kernel that Apple's `container`
 boots per container (`container run -k`, wired through `CONTAINER_KERNEL` in
 `eng/container-runtime.sh`): Apple's default kernel config plus a checked-in
 BPF/tracing fragment, from a pinned kernel.org tarball, built by the *Container
