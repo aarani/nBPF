@@ -16,13 +16,12 @@ on:
           pinned version.
         required: false
         default: ""
+  # No pull_request trigger: GitHub matches PR path filters against the whole PR, so
+  # every push to a PR that touched these files would rebuild every kernel. These
+  # kernels are for local runs only; main gets them on merge, and a branch can get
+  # one on demand with a manual run (inputs.kernels).
   push:
     branches: [main]
-    paths:
-      - eng/build-kernel.sh
-      - eng/kernel/**
-      - .github/workflows/container-kernel.yml
-  pull_request:
     paths:
       - eng/build-kernel.sh
       - eng/kernel/**
