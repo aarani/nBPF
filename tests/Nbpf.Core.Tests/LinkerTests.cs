@@ -135,6 +135,9 @@ public class LinkerTests
         var ex = Assert.Throws<NotSupportedException>(
             () => BpfLinker.Link(ElfReader.Read(mutated), Fds));
         Assert.Contains("xracepoint/", ex.Message);
+        // The message lists what *would* have worked, both prefixes and exact names.
+        Assert.Contains(ProgSections.SupportedPrefixes, ex.Message);
+        Assert.Contains(ProgSections.SupportedFixedNames, ex.Message);
     }
 
     [Fact]
@@ -169,6 +172,7 @@ public class LinkerTests
             () => BpfLinker.Link(ElfReader.Read(mutated), Fds));
         Assert.Contains("extern", ex.Message);
     }
+ 
 
     private static byte[] ReplaceBytes(byte[] source, ReadOnlySpan<byte> find, ReadOnlySpan<byte> replace)
     {

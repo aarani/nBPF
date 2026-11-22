@@ -17,7 +17,9 @@ suite, including CO-RE against the running kernel's own BTF, passes on 6.8.12
 under Apple `container` and on 5.4.302 in QEMU in CI (§8.4). That completes
 phase 2. Carried over, by decision rather than oversight: the probes of §4.5 that
 wait on attachment land with phase 3, and the extern steps of §4.4 are
-unscheduled. Everything past that is still design. See the README for what actually works today.
+unscheduled. Phase 3 has started. XDP programs load from objects, and their
+packet logic is tested through `BPF_PROG_TEST_RUN` (§8.1). Attaching them
+(§4.6) is next. Everything past that is still design. See the README for what actually works today.
 **Target:** .NET 10+ (library), netstandard2.0 (generators), Linux 5.4+ (runtime).
 
 ---
@@ -750,7 +752,7 @@ use — **resist the temptation to start there.**
 | **0** | Syscall layer, map CRUD, hand-assembled program, ringbuf | A hand-written instruction array loads and emits events | ✅ done |
 | **1** | ELF + BTF parse; map / global / subprog relocations | Real clang output for a tracepoint loads on the build kernel | ✅ done — `BpfObject.Load` passes the exit criterion in the container tests |
 | **2** | CO-RE field relos, vmlinux BTF, feature probes | Same binary runs on 5.4 and 6.8 unmodified | ✅ done — the suite passes on booted 6.8.12 (Apple `container`) and 5.4.302 (QEMU in CI); the attachment-dependent probes move to phase 3 |
-| **3** | Attachment breadth: XDP, TC/TCX, cgroup, fentry, netlink | XDP drop counter on a live NIC | — |
+| **3** | Attachment breadth: XDP, TC/TCX, cgroup, fentry, netlink | XDP drop counter on a live NIC | in progress — XDP sections load and the drop counter is verified through `PROG_TEST_RUN`; attaching is not built yet |
 | **4** | **P1** skeleton generator + MSBuild + templates | The [§3](#3-target-ux) snippet is the complete program | — |
 | **5** | **P4** design-time verifier analyzer | Verifier error appears as a squiggle on the right line of `.bpf.c` | — |
 | **6** | **P2** attach surface, demand-driven | Typo'd tracepoint name is a compile error | — |

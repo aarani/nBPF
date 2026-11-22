@@ -180,6 +180,24 @@ with memcg accounting in 5.11. If the limit can't be raised, an `EPERM` says so
 instead of blaming capabilities. Set `MemlockLimit.AutoRaise = false` first to
 manage it yourself.
 
+Phase 3 (attachment) has started, with XDP. So far only loading is done, not
+attaching:
+
+- `BpfObject.Load` recognizes XDP programs: `SEC("xdp")` exactly, or any
+  `SEC("xdp/...")`. Look-alikes such as `xdp.frags`, which needs a load flag
+  nBPF doesn't set yet, are rejected rather than loaded as plain XDP.
+- The `xdp-drop.bpf.o` fixture drops and counts UDP traffic to one port. Its
+  packet logic is checked through `BPF_PROG_TEST_RUN` with hand-built frames:
+  - VLAN and QinQ tags
+  - IPv4 options
+  - fragments
+  - truncated packets
+
+  These tests pass on the 6.18 kernel under Apple `container`.
+
+The fixture is compiled with `-mcpu=v2`, because clang 20 defaults to v3. On v3
+the counter increment becomes an `atomic_fetch_add`, which only 5.12+ accepts.
+
 Carried over from phase 2: the probes of
 [DESIGN.md §4.5](DESIGN.md#45-feature-probes) that only matter once attachment
 and kernel BTF loading exist (`bpf_link`, TCX, `kprobe_multi`, BTF kinds,

@@ -46,7 +46,8 @@ internal static class BpfLinker
             if (!ProgSections.TryResolve(section.Name, out var progType))
                 throw new NotSupportedException(
                     $"Program section '{section.Name}' has no known type; " +
-                    $"supported prefixes: {ProgSections.SupportedPrefixes}.");
+                    $"supported prefixes: {ProgSections.SupportedPrefixes};" +
+                    $" or exact names: {ProgSections.SupportedFixedNames}.");
 
             foreach (var symbol in elf.Symbols)
             {

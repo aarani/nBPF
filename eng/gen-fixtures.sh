@@ -8,6 +8,7 @@
 #   tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf      .BTF of the ELF sample (companion of the pair below)
 #   tests/Nbpf.Btf.Tests/Fixtures/elf-sample.btf.ext  .BTF.ext of the ELF sample (string offsets point into elf-sample.btf)
 #   tests/Nbpf.Elf.Tests/Fixtures/sample.bpf.o        the whole relocatable object
+#   tests/Nbpf.Elf.Tests/Fixtures/xdp-drop.bpf.o      XDP program for the XDP tests
 #   tests/Nbpf.Elf.Tests/Fixtures/core-sample.bpf.o   object carrying CO-RE relocations
 #   tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf     .BTF of the CO-RE sample
 #   tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf.ext .BTF.ext of the CO-RE sample
@@ -42,7 +43,7 @@ trap 'rm -rf "$tmp"' EXIT
 
 # -g is mandatory: no debug info means no BTF section at all.
 compile() {
-    "$clang" -target bpf -O2 -g -c "$1" -o "$2"
+    "$clang" -target bpf -O2 -g "${@:3}" -c "$1" -o "$2"
 }
 
 # The BTF fixture keeps only the .BTF section, so those tests need no ELF reader.
@@ -68,6 +69,11 @@ compile "$core_src" "$root/tests/Nbpf.Elf.Tests/Fixtures/core-sample.bpf.o"
            --dump-section .BTF.ext="$root/tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf.ext" \
            "$root/tests/Nbpf.Elf.Tests/Fixtures/core-sample.bpf.o"
 
+# The XDP fixture, it needs to be compiled with -mcpu=v2 to avoid v3's atomic_fetch_add which needs
+# 5.12+ kernel to load.
+xdp_src="$root/tests/Nbpf.Elf.Tests/Fixtures/xdp-drop.bpf.c"
+compile "$xdp_src" "$root/tests/Nbpf.Elf.Tests/Fixtures/xdp-drop.bpf.o" -mcpu=v2
+
 # The cross-kernel fixture: relocations whose answers differ between 5.4 and 6.8.
 kernels_src="$root/tests/Nbpf.Elf.Tests/Fixtures/core-kernels.bpf.c"
 compile "$kernels_src" "$root/tests/Nbpf.Elf.Tests/Fixtures/core-kernels.bpf.o"
@@ -82,6 +88,7 @@ for f in "$root/tests/Nbpf.Btf.Tests/Fixtures/sample.btf" \
          "$root/tests/Nbpf.Elf.Tests/Fixtures/core-sample.bpf.o" \
          "$root/tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf" \
          "$root/tests/Nbpf.Btf.Tests/Fixtures/core-sample.btf.ext" \
+         "$root/tests/Nbpf.Elf.Tests/Fixtures/xdp-drop.bpf.o" \
          "$root/tests/Nbpf.Elf.Tests/Fixtures/core-kernels.bpf.o" \
          "$root/tests/Nbpf.Btf.Tests/Fixtures/core-kernels.btf" \
          "$root/tests/Nbpf.Btf.Tests/Fixtures/core-kernels.btf.ext"; do
